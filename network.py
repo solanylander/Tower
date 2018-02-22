@@ -64,8 +64,8 @@ class Network:
 		np.save('scores17.npy', scoresSave)
 
 	def loadNetwork(self):
-		self.trainingData1 = np.load('trainingData15.npy')
-		self.trainingData2 = np.load('trainingData16.npy')
+		#self.trainingData1 = np.load('trainingData15.npy')
+		#self.trainingData2 = np.load('trainingData16.npy')
 		#self.trainingData3 = np.load('trainingData13.npy')
 		#self.trainingData4 = np.load('trainingData14.npy')
 		print("hi")
