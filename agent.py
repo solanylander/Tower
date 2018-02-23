@@ -115,99 +115,103 @@ class Agent:
 
 		pivot = (pos[0], pos[1])
 		pivot = self.gravity(pivot, 30)
-		self.inputs(pivot)
-
-
-		up_probability = self.network.forward_pass(self.networkInput)[0]
-		self.new = True
-		# Pick a move
-		count = True
-		zd = 0
-		move = np.argmax(up_probability)
-		while randint(0, 100) < 10:
-			up_probability[move] = 0
+		usedMoves = []
+		for i in range(4):
+			self.stored(True)
+			self.inputs(pivot)
+			up_probability = self.network.forward_pass(self.networkInput)[0]
+			self.new = True
+			# Pick a move
+			count = True
+			zd = 0
 			move = np.argmax(up_probability)
-			zd += 1
+			while move is not -1 and (move % 15) in usedMoves:
+				up_probability[move] = 0
+				move = np.argmax(up_probability)
+				zd += 1
 
-		if np.max(up_probability) == 0:
-			move = -1
+			if np.max(up_probability) == 0:
+				move = -1
 
-		if move != -1:
 			movement = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-			for k in range(len(movement)):
-				if k == move:
-					movement[k] = 1
-					break
-				elif k == move - 15:
-					movement[k] = -1
-					break
+			if move != -1:
+				for k in range(len(movement)):
+					if k == move:
+						movement[k] = 1
+						break
+					elif k == move - 15:
+						movement[k] = -1
+						break
 
-			self.setConstraints()
+				self.setConstraints()
 
-			backMove = parts[k].rotation(movement[k])
-			if k == 0:
-				pivot = (pivot[0] + backMove[0], pivot[1] + backMove[1])
-			if(k > 2 and k < 6 or k > 8 and k < 12):
-				parts[k + 3].rotation(movement[k])
+				backMove = parts[k].rotation(movement[k])
+				if k == 0:
+					pivot = (pivot[0] + backMove[0], pivot[1] + backMove[1])
+				if(k > 2 and k < 6 or k > 8 and k < 12):
+					parts[k + 3].rotation(movement[k])
 
-			self.setPositions(pivot)
-
-			if self.collide(2):
-				count = False
-				self.stored(False)
-			elif self.collide(1):
-				self.stored(False)
-				amountOfMoves = amountOfMoves + 1
-				distChange = self.interactiveMove(move % 15, movement[k])
-				pivot = (pivot[0] + distChange[0], pivot[1] + distChange[1])
 				self.setPositions(pivot)
 
-				if self.collide(1):
+				if self.collide(2):
+					count = False
 					self.stored(False)
-					print("Fail 2", distChange)
-
-					pivot = (pivot[0], pivot[1] - 2)
-
-					parts[move % 15].rotation(movement[k])
-					if (((move % 15) - 3) % 6) < 3:
-						parts[(move % 15) + 3].rotation(movement[k])
+				elif self.collide(1):
+					self.stored(False)
+					amountOfMoves = amountOfMoves + 1
+					distChange = self.interactiveMove(move % 15, movement[k])
+					pivot = (pivot[0] + distChange[0], pivot[1] + distChange[1])
 					self.setPositions(pivot)
-					double = True
 
 					if self.collide(1):
 						self.stored(False)
-						print("Fail 3")
-						double = False
-					else:
-						pivot = self.gravity(pivot, 20)
+						print("Fail 2", distChange)
 
-		if show:
-			print(move, count, zd)
+						pivot = (pivot[0], pivot[1] - 2)
 
-		self.centerOfGravity(pivot, double)
-		# If the agents center of gravity is to the left of all its points of contacts fall to the left
-		if self.box[0][0] != -1 and self.box[0][0] > self.cog[0]:
-			passed = self.fallRotation(pivot, True)
-		# If the agents center of gravity is to the right of all its points of contacts fall to the right
-		elif self.box[1][0] != -1 and self.box[1][0] < self.cog[0]:
-			passed = self.fallRotation(pivot, False)
-		elif self.box[0][0] <= self.cog[0] and self.box[1][0] >= self.cog[0] and self.button:
-			self.c = self.cog
-			print("click")
-			self.button = False
+						parts[move % 15].rotation(movement[k])
+						if (((move % 15) - 3) % 6) < 3:
+							parts[(move % 15) + 3].rotation(movement[k])
+						self.setPositions(pivot)
+						double = True
 
-		self.setConstraints()
+						if self.collide(1):
+							self.stored(False)
+							print("Fail 3")
+							double = False
+						else:
+							pivot = self.gravity(pivot, 20)
 
-		if self.collide(2):
-			self.tweak(pivot)
+			if show:
+				print(move, count, zd)
 
-		if move == -1:
-			return False
+			self.centerOfGravity(pivot, double)
+			# If the agents center of gravity is to the left of all its points of contacts fall to the left
+			if self.box[0][0] != -1 and self.box[0][0] > self.cog[0]:
+				passed = self.fallRotation(pivot, True)
+			# If the agents center of gravity is to the right of all its points of contacts fall to the right
+			elif self.box[1][0] != -1 and self.box[1][0] < self.cog[0]:
+				passed = self.fallRotation(pivot, False)
+			elif self.box[0][0] <= self.cog[0] and self.box[1][0] >= self.cog[0] and self.button:
+				self.c = self.cog
+				print("click")
+				self.button = False
 
-		return self.ended(move, timer, self.button)
+			self.setConstraints()
+			if move != -1:
+				usedMoves.append(move % 15)
+
+			if self.collide(2):
+				self.tweak(pivot)
+
+			x = self.ended(move, timer, self.button, i)
+			if i == 3:
+				if show:
+					print("----------------")
+				return x
 
 
-	def ended(self, move, timer, button):
+	def ended(self, move, timer, button, turn):
 		if not button:
 			score = self.getCog()[0] - self.c[0]
 			reward = 0
@@ -215,11 +219,11 @@ class Agent:
 				reward = 1
 			elif score < -120:
 				reward = -1
-			elif timer < 0 and score < 6:
+			elif timer < 0 and score < 6 and turn == 3:
 				reward = (score - 6) / 126
-			elif timer < 0 and score < 30:
+			elif timer < 0 and score < 30 and turn == 3:
 				reward = score / 200
-			elif timer < 0:
+			elif timer < 0 and turn == 3:
 				reward = score / 120
 
 			output = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
@@ -229,15 +233,15 @@ class Agent:
 
 			tup = (self.networkInput, output, reward)
 			self.batch_state_action_reward_tuples.append(tup)
-
-			if reward < 0:
-				print("Round %d; Score: %0.3f, Reward: %0.3f,  lost..." % (self.round_n, score, reward))
-			elif reward > 0:
-				print("Round %d: Score: %0.3f, Reward: %0.3f, won!" % (self.round_n, score, reward))
-			if reward != 0:
-				self.round_n += 1
-				self.n_steps = 0
-				return True
+			if turn == 3:
+				if reward < 0:
+					print("Round %d; Score: %0.3f, Reward: %0.3f,  lost..." % (self.round_n, score, reward))
+				elif reward > 0:
+					print("Round %d: Score: %0.3f, Reward: %0.3f, won!" % (self.round_n, score, reward))
+				if reward != 0:
+					self.round_n += 1
+					self.n_steps = 0
+					return True
 		return False
 
 	def finishEpisode(self):
