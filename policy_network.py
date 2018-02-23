@@ -2,10 +2,10 @@ import os.path
 import numpy as np
 import tensorflow as tf
 
-OBSERVATIONS_SIZE = 6400
+OBSERVATIONS_SIZE = 15
 
 
-class policy_network:
+class Network:
     #Good
     def __init__(self, hidden_layer_size, learning_rate, checkpoints_dir):
         self.learning_rate = learning_rate
@@ -15,7 +15,7 @@ class policy_network:
         self.observations = tf.placeholder(tf.float32,
                                            [None, OBSERVATIONS_SIZE])
         # +1 for up, -1 for down
-        self.sampled_actions = tf.placeholder(tf.float32, [None, 1])
+        self.sampled_actions = tf.placeholder(tf.float32, [None, 30])
         self.advantage = tf.placeholder(
             tf.float32, [None, 1], name='advantage')
 
@@ -27,7 +27,7 @@ class policy_network:
 
         self.up_probability = tf.layers.dense(
             h,
-            units=1,
+            units=30,
             activation=tf.sigmoid,
             kernel_initializer=tf.contrib.layers.xavier_initializer())
 
@@ -64,6 +64,7 @@ class policy_network:
         self.saver.save(self.sess, self.checkpoint_file)
     #Good
     def forward_pass(self, observations):
+        observations = np.array(observations)
         up_probability = self.sess.run(
             self.up_probability,
             feed_dict={self.observations: observations.reshape([1, -1])})
@@ -84,3 +85,19 @@ class policy_network:
             self.advantage: rewards
         }
         self.sess.run(self.train_op, feed_dict)
+
+
+
+    def discount_rewards(self, rewards, discount_factor):
+        discounted_rewards = np.zeros_like(rewards)
+        for t in range(len(rewards)):
+            discounted_reward_sum = 0
+            discount = 1
+            for k in range(t, len(rewards)):
+                discounted_reward_sum += rewards[k] * discount
+                discount *= discount_factor
+                if rewards[k] != 0:
+                    # Don't count rewards from subsequent rounds
+                    break
+            discounted_rewards[t] = discounted_reward_sum
+        return discounted_rewards

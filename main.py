@@ -1,8 +1,19 @@
-import math, random, sys, pygame, os, time
+import math, random, sys, pygame, os, time, argparse
 from pygame.locals import *
 from agent import Agent
 from part import Part
 from block import Block
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--hidden_layer_size', type=int, default=200)
+parser.add_argument('--learning_rate', type=float, default=0.0005)
+parser.add_argument('--batch_size_episodes', type=int, default=1)
+parser.add_argument('--checkpoint_every_n_episodes', type=int, default=10)
+parser.add_argument('--load_checkpoint', action='store_true')
+parser.add_argument('--discount_factor', type=int, default=1.00)
+args = parser.parse_args()
+
 
 # define display surface			
 W, H = 1080, 600
@@ -21,7 +32,7 @@ DS = pygame.display.set_mode((W, H))
 pygame.display.set_caption("Ant Tower Project")
 FPS = 120
 trainingNum = 10000
-duration = 1000
+duration = 2000
 switch = False
 
 # Get the image resources for the world
@@ -34,7 +45,7 @@ blocks, agents = [],[]
 agentNumber = 1
 # Adds agents into the world
 for p in range(0,agentNumber):
-	agents.append(Agent((300,200 + 175 * p)))
+	agents.append(Agent((300,200 + 175 * p), args))
 	blocks.append(Block(0, 0, 400 + p * 175))
 	# agents.append(Agent((50,-25 + 175 * p)))
 	# blocks.append(Block(0, 0, 55 + p * 175))
@@ -46,9 +57,8 @@ for i in range(len(agents)):
 
 timer = duration
 counter = 0
-for k in range(len(agents)):
-	agents[k].network.initialiseNetwork()
 show = False
+reset = False
 # main loop
 while True:
 	# Key Listeners for movement and quitting
@@ -73,17 +83,14 @@ while True:
 		timer = duration
 		counter = counter + 1
 		x = (trainingNum - counter) / 4.48
-		print("Counter: ", counter, "| Estimated Minutes Remaining:", x)
 		for k in range(len(agents)):
+			if counter % 20 == 0 and not reset:
+				agents[k].finishEpisode()
 			score = agents[k].getCog()[0]
 			agents[k].reset(counter < trainingNum, score, False)
-			if counter == trainingNum:
-				agents[k].network.saveNetwork()
-				agents[k].network.afterInitial()
-				agents[k].network.trainModel()
-			elif (counter % 500) == 0:
-				agents[k].network.saveNetwork()
+		prev = counter
 		print("----")
+		reset = False
 	else:
 		timer = timer - 1
 
@@ -92,10 +99,12 @@ while True:
 			timer = -1
 			counter = counter - 1
 			print("Reset")
+			reset = True
 
 	# Control specific agents
 	for j in range(len(agents)):
-		agents[j].move(counter < trainingNum, show)
+		if agents[j].move(timer, show):
+			timer = -1
 	if  (counter >= trainingNum) or switch:
 		# Draw world
 		DS.fill(BLUE)

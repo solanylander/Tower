@@ -1,19 +1,31 @@
 import math, random, sys, pygame
 from pygame.locals import *
 from part import Part
-from network import Network
+from policy_network import Network
 from random import *
+import pickle
 import time
+import numpy as np
 
 class Agent:
 
-	def __init__(self, xy):
+	def __init__(self, xy, args):
 		# Which body parts are currently colliding
 		self.colliding = []
 		# Objects within the world
 		self.objects = []
+
+		self.args = args
 		# Neural network
-		self.network = Network()
+		self.network = Network(args.hidden_layer_size, args.learning_rate, checkpoints_dir='checkpoints')
+		if args.load_checkpoint:
+			self.network.load_checkpoint()
+		self.batch_state_action_reward_tuples = []
+		self.smoothed_reward = None
+		self.episode_n = 1
+		self.episode_reward_sum = 0
+		self.round_n = 1
+
 		# Center of gravity
 		self.cog = (0,0)
 		# Run counter
@@ -21,7 +33,7 @@ class Agent:
 		# Total distance counter
 		self.total = 0
 		# Initial position
-		self.c = 0
+		self.c = None
 		# Spawn position
 		self.xy = xy
 		# Valid run
@@ -32,7 +44,6 @@ class Agent:
 		self.backup = []
 		for k in range(0,15):
 			self.backup.append(Part(0, 0, 0, False, 0))
-
 
 	# Reset agent
 	def reset(self, stage, score, init):
@@ -84,57 +95,44 @@ class Agent:
 		self.parts = parts
 		self.setConstraints()
 		self.setPositions(self.xy)
+		self.prevMove = -1
 		if self.button == False:
 			score = score - self.c[0]
-			if not stage:
-				print("Score:", score)
-			if(score > 4):
-				self.counter = self.counter + 1
-				print(self.counter, "Valid Score:", score)
-			else:
-				print(self.counter, "Invalid Score:", score)
 			self.total = self.total + score
-			if not init:
-				if stage:
-					self.network.nextGame(score)
-				else:
-					print(self.total)
-					self.network.nextGameCompleted(score)
 		self.button = True
 		return self.collide(0)
 
 
 	# Handles movement calculations
-	def move(self, stage, show):
+	def move(self, timer, show):
 		parts = self.parts
 		pos = parts[0].getPosition()
 		self.stored(True)
 		amountOfMoves = 0
 		moveTracker = []
 		failures = 0
-		new = True
 		double = False
 
 		pivot = (pos[0], pos[1])
 		pivot = self.gravity(pivot, 30)
-		for j in range(1, 31):
-			self.stored(False)
-			if new:
-				self.inputs(pivot)
+		self.inputs(pivot)
 
 
-			# Pick a move
-			while True:
-				move = self.network.move(self.networkInput, self.button, moveTracker, new)
-				new = False
-				if self.legalMove(move, pivot):
-					break
-			if move == -1:
-				break
+		up_probability = self.network.forward_pass(self.networkInput)[0]
+		self.new = True
+		# Pick a move
+		count = True
+		zd = 0
+		move = np.argmax(up_probability)
+		while randint(0, 100) < 10:
+			up_probability[move] = 0
+			move = np.argmax(up_probability)
+			zd += 1
 
-			if show:
-				print(move)
+		if np.max(up_probability) == 0:
+			move = -1
 
+		if move != -1:
 			movement = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 			for k in range(len(movement)):
 				if k == move:
@@ -154,9 +152,10 @@ class Agent:
 
 			self.setPositions(pivot)
 
-			if self.collide(1):
-				if show:
-					print("Fail 1")
+			if self.collide(2):
+				count = False
+				self.stored(False)
+			elif self.collide(1):
 				self.stored(False)
 				amountOfMoves = amountOfMoves + 1
 				distChange = self.interactiveMove(move % 15, movement[k])
@@ -182,23 +181,16 @@ class Agent:
 					else:
 						pivot = self.gravity(pivot, 20)
 
-			if not self.button:
-				self.network.store(self.networkInput, move)
-			break
-
-
+		if show:
+			print(move, count, zd)
 
 		self.centerOfGravity(pivot, double)
 		# If the agents center of gravity is to the left of all its points of contacts fall to the left
 		if self.box[0][0] != -1 and self.box[0][0] > self.cog[0]:
 			passed = self.fallRotation(pivot, True)
-			if show:
-				print("Fall", passed)
 		# If the agents center of gravity is to the right of all its points of contacts fall to the right
 		elif self.box[1][0] != -1 and self.box[1][0] < self.cog[0]:
 			passed = self.fallRotation(pivot, False)
-			if show:
-				print("Fall", passed)
 		elif self.box[0][0] <= self.cog[0] and self.box[1][0] >= self.cog[0] and self.button:
 			self.c = self.cog
 			print("click")
@@ -209,9 +201,83 @@ class Agent:
 		if self.collide(2):
 			self.tweak(pivot)
 
-	def legalMove(self, move, pivot):
+		if move == -1:
+			return False
+
+		return self.ended(move, timer, self.button)
+
+
+	def ended(self, move, timer, button):
+		if not button:
+			score = self.getCog()[0] - self.c[0]
+			reward = 0
+			if score > 120:
+				reward = 1
+			elif score < -120:
+				reward = -1
+			elif timer < 0 and score < 6:
+				reward = (score - 6) / 126
+			elif timer < 0 and score < 30:
+				reward = score / 200
+			elif timer < 0:
+				reward = score / 120
+
+			output = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+			output[move] = 1
+
+			self.episode_reward_sum += reward
+
+			tup = (self.networkInput, output, reward)
+			self.batch_state_action_reward_tuples.append(tup)
+
+			if reward < 0:
+				print("Round %d; Score: %0.3f, Reward: %0.3f,  lost..." % (self.round_n, score, reward))
+			elif reward > 0:
+				print("Round %d: Score: %0.3f, Reward: %0.3f, won!" % (self.round_n, score, reward))
+			if reward != 0:
+				self.round_n += 1
+				self.n_steps = 0
+				return True
+		return False
+
+	def finishEpisode(self):
+		print("Episode %d finished after %d rounds" % (self.episode_n, self.round_n))
+
+		# exponentially smoothed version of reward
+		if self.smoothed_reward is None:
+			self.smoothed_reward = self.episode_reward_sum
+		else:
+			self.smoothed_reward = self.smoothed_reward * 0.99 + self.episode_reward_sum * 0.01
+		print("Reward total was %.3f; discounted moving average of reward is %.3f" \
+			% (self.episode_reward_sum, self.smoothed_reward))
+
+		if self.episode_n % self.args.batch_size_episodes == 0:
+			states, actions, rewards = zip(*self.batch_state_action_reward_tuples)
+			rewards = self.network.discount_rewards(rewards, self.args.discount_factor)
+			rewards -= np.mean(rewards)
+			rewards /= np.std(rewards)
+			self.batch_state_action_reward_tuples = list(zip(states, actions, rewards))
+			self.network.train(self.batch_state_action_reward_tuples)
+			self.batch_state_action_reward_tuples = []
+
+		if self.episode_n % self.args.checkpoint_every_n_episodes == 0:
+			self.network.save_checkpoint()
+
+		self.episode_n += 1
+		self.episode_reward_sum = 0
+
+
+
+
+
+
+	def legalMove(self, move, pivot, show):
 		if move == -1:
 			return True
+		elif randint(0,100) < 10:
+			return False
+
+		self.prevMove = move
 
 		parts = self.parts
 		valid = None
@@ -411,7 +477,7 @@ class Agent:
 
 		self.stored(True)
 		self.box = [(-1,-1), (-1,-1), (-1,-1), (-1,-1)]
-		pivot = (pivot[0], pivot[1] + 1)
+		pivot = (pivot[0], pivot[1] + 1.5)
 		self.setPositions(pivot)
 		self.collide(1)
 		self.stored(False)
