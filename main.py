@@ -46,6 +46,7 @@ agentNumber = 1
 # Adds agents into the world
 for p in range(0,agentNumber):
 	agents.append(Agent((300,200 + 175 * p), args))
+	agents[p].randomAgent.initialiseNetwork()
 	blocks.append(Block(0, 0, 400 + p * 175))
 	# agents.append(Agent((50,-25 + 175 * p)))
 	# blocks.append(Block(0, 0, 55 + p * 175))
@@ -88,6 +89,7 @@ while True:
 				agents[k].finishEpisode()
 			score = agents[k].getCog()[0]
 			agents[k].reset(counter < trainingNum, score, False)
+			agents[k].randomAgent.nextGame()
 		prev = counter
 		print("----")
 		reset = False

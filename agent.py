@@ -2,6 +2,7 @@ import math, random, sys, pygame
 from pygame.locals import *
 from part import Part
 from policy_network import Network
+from network import random_network
 from random import *
 import pickle
 import time
@@ -25,7 +26,7 @@ class Agent:
 		self.episode_n = 1
 		self.episode_reward_sum = 0
 		self.round_n = 1
-
+		self.randomAgent = random_network()
 		# Center of gravity
 		self.cog = (0,0)
 		# Run counter
@@ -107,6 +108,7 @@ class Agent:
 	def move(self, timer, show):
 		parts = self.parts
 		pos = parts[0].getPosition()
+		cog = self.getCog()[0]
 		self.stored(True)
 		amountOfMoves = 0
 		moveTracker = []
@@ -118,23 +120,36 @@ class Agent:
 		usedMoves = []
 		for i in range(4):
 			self.stored(True)
-			self.inputs(pivot)
+			self.inputs(pivot, i)
 			up_probability = self.network.forward_pass(self.networkInput)[0]
 			self.new = True
 			# Pick a move
 			count = True
 			zd = 0
+
+
+
+			random = False
+			if (randint(0,100) < 20):
+				up_probability = self.randomAgent.move(self.networkInput, self.button, moveTracker)
+				random = True
 			move = np.argmax(up_probability)
-			while move is not -1 and (move % 15) in usedMoves:
+			if show:
+				if random:
+					print("yes")
+				else:
+					print("no")
+			while move is not 30 and (move % 15) in usedMoves:
+
 				up_probability[move] = 0
 				move = np.argmax(up_probability)
 				zd += 1
 
 			if np.max(up_probability) == 0:
-				move = -1
+				move = 30
 
 			movement = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-			if move != -1:
+			if move != 30:
 				for k in range(len(movement)):
 					if k == move:
 						movement[k] = 1
@@ -174,6 +189,9 @@ class Agent:
 							parts[(move % 15) + 3].rotation(movement[k])
 						self.setPositions(pivot)
 						double = True
+						xDiff = self.getCog()[0] - cog
+						pivot = (pivot[0] - xDiff, pivot[1])
+						self.setPositions(pivot)
 
 						if self.collide(1):
 							self.stored(False)
@@ -198,7 +216,7 @@ class Agent:
 				self.button = False
 
 			self.setConstraints()
-			if move != -1:
+			if move != 30:
 				usedMoves.append(move % 15)
 
 			if self.collide(2):
@@ -215,18 +233,14 @@ class Agent:
 		if not button:
 			score = self.getCog()[0] - self.c[0]
 			reward = 0
-			if score > 120:
-				reward = 1
-			elif score < -120:
-				reward = -1
-			elif timer < 0 and score < 6 and turn == 3:
-				reward = (score - 6) / 126
+			if timer < 0 and score < 6 and turn == 3:
+				reward = (score - 6) / 120
 			elif timer < 0 and score < 30 and turn == 3:
 				reward = score / 200
 			elif timer < 0 and turn == 3:
 				reward = score / 120
 
-			output = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+			output = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 			output[move] = 1
 
 			self.episode_reward_sum += reward
@@ -307,22 +321,27 @@ class Agent:
 		self.stored(False)
 		return valid
 
-	def inputs(self, pivot):
+	def inputs(self, pivot, turn):
 		parts = self.parts
 		objects = self.objects
 		netInputs = []
 		for i in range(len(parts)):
 				netInputs.append(parts[i].getRotation() / 360.0)
-				#for j in range(0,2):
-				#	parts[i].rotation(-1 + (j * 2))
-				#	if(i > 2 and i < 6 or i > 8 and i < 12):
-				#		parts[i + 3].rotation(-1 + (j * 2))
-				#	self.setPositions(pivot)
-				#	boolToInt = 0
-				#	if self.collide(1):
-				#		boolToInt = 1
-					#netInputs.append(boolToInt)
-				#	self.stored(False)
+		#		for j in range(0,2):
+		#			parts[i].rotation(-1 + (j * 2))
+		#			if(i > 2 and i < 6 or i > 8 and i < 12):
+		#				parts[i + 3].rotation(-1 + (j * 2))
+		#			self.setPositions(pivot)
+		#			boolToInt = 0
+		#			if self.collide(1):
+		#				boolToInt = 1
+		#			netInputs.append(boolToInt)
+		#			self.stored(False)
+		for j in range(4):
+			if j == turn:
+				netInputs.append(1)
+			else:
+				netInputs.append(0)
 		self.networkInput = netInputs
 
 	# When the agent pushes off with a leg the rest of its body should follow
