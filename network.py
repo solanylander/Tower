@@ -44,7 +44,7 @@ class random_network:
 		#self.scores.append(score)
 		#self.gameMemory = []
 		#self.prevObs = []
-		self.model.set_weights(self.network.W, np.random.rand(128, 31))
+		self.model.set_weights(self.network.W, np.random.rand(128, 30))
 		#print("here")
 
 	def initialiseNetwork(self):
@@ -96,7 +96,7 @@ class random_network:
 		network = fully_connected(network, 128, activation='relu')
 		network = dropout(network, 0.8)
 
-		network = fully_connected(network, 31, activation='softmax')
+		network = fully_connected(network, 30, activation='softmax')
 		self.network = regression(network, optimizer='adam', learning_rate=LR, loss='categorical_crossentropy', name='targets')
 
 		model = tflearn.DNN(self.network, tensorboard_dir='log')

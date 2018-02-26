@@ -71,11 +71,12 @@ class Part:
 	def rotation(self, amount):
 		# When the back part is rotated it needs a pivot so the connecting point to the front torso is used
 		distance = (0,0)
-		if self.main and amount != 0:
+		if self.main and abs(amount) == 1:
 			# Find the distance between where the back part is and where it should be after rotating
 			distance = (math.cos(self.rotate / 180 * math.pi) * 39.0, math.sin((self.rotate / 180 * math.pi)) * 39.0)
 			distanceTwo = (math.cos((self.rotate + amount) / 180 * math.pi) * 39.0, math.sin(((self.rotate + amount) / 180 * math.pi)) * 39.0)
-			distance = (distance[0] - distanceTwo[0], distanceTwo[1] - distance[1])
+			distance = (distance[0] - distanceTwo[0], distance[1] - distanceTwo[1])
+			#print(self.constraint[0], self.constraint[1], self.rotate)
 
 		l, u, r = self.constraint[0], self.constraint[1], self.rotate
 		r = (r + amount) % 360.0

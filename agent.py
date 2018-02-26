@@ -40,62 +40,68 @@ class Agent:
 		# Valid run
 		self.button = True
 		# Reset Agent
-		self.reset(True, 0, True)
+		self.reset(True, 0, True, True)
+		self.box = [(-1,-1), (-1,-1), (-1,-1), (-1,-1)]
 		# Initialise the backup storage for the parts information with 0 values
 		self.backup = []
 		for k in range(0,15):
 			self.backup.append(Part(0, 0, 0, False, 0))
 
 	# Reset agent
-	def reset(self, stage, score, init):
+	def reset(self, stage, score, init, hardReset):
 		parts = []
+		self.random = [False,False,False,False]
+		for i in range(4):
+			if randint(0,100) < 20:
+				self.random[i] = True
 		# add the head and body parts
-		if True:
-			parts.append(Part(randint(0, 360), self.xy[0], self.xy[1], True, 50))
-			parts.append(Part(randint(0, 360), 0, 0, False, 50))
-			parts.append(Part(randint(0, 360), 0, 0, False, 50))
-		else:
-			# Normal Spawn
-			parts.append(Part(0, self.xy[0], self.xy[1], True, 50))
-			parts.append(Part(0, 0, 0, False, 50))
-			parts.append(Part(0, 0, 0, False, 50))
-		# Load the image files
-		parts[0].loadImage("image_resources/body.png")
-		parts[1].loadImage("image_resources/body.png")
-		parts[2].loadImage("image_resources/head.png")
-		# Body parts and heads weight
-		parts[0].setWeight(23.44)
-		parts[1].setWeight(11.72)
-		parts[2].setWeight(8.24)
+		if hardReset:
+			if True:
+				parts.append(Part(randint(0, 360), self.xy[0], self.xy[1], True, 50))
+				parts.append(Part(randint(0, 360), 0, 0, False, 50))
+				parts.append(Part(randint(0, 360), 0, 0, False, 50))
+			else:
+				# Normal Spawn
+				parts.append(Part(0, self.xy[0], self.xy[1], True, 50))
+				parts.append(Part(0, 0, 0, False, 50))
+				parts.append(Part(0, 0, 0, False, 50))
+			# Load the image files
+			parts[0].loadImage("image_resources/body.png")
+			parts[1].loadImage("image_resources/body.png")
+			parts[2].loadImage("image_resources/head.png")
+			# Body parts and heads weight
+			parts[0].setWeight(23.44)
+			parts[1].setWeight(11.72)
+			parts[2].setWeight(8.24)
 
-		if True:
-			for i in range(0, 2):
-				parts.append(Part(randint(0, 360), 0, 0, False, 12))
-				parts.append(Part(randint(0, 360), 0, 0, False, 12))
-				parts.append(Part(randint(0, 360), 0, 0, False, 12))
-				parts.append(Part(randint(0, 360), 0, 0, False, 12))
-				parts.append(Part(randint(0, 360), 0, 0, False, 12))
-				parts.append(Part(randint(0, 360), 0, 0, False, 12))
-		else:
-			# Normal Spawn
-			for i in range(0, 2):
-				parts.append(Part(310, 0, 0, False, 12))
-				parts.append(Part(50, 0, 0, False, 12))
-				parts.append(Part(50, 0, 0, False, 12))
-				parts.append(Part(0, 0, 0, False, 12))
-				parts.append(Part(0, 0, 0, False, 12))
-				parts.append(Part(0, 0, 0, False, 12))
-		# Add the leg parts
-		for l in range(3, 15):
-			# Load the image files and set the constraints
-			parts[l].loadImage("image_resources/leg_green.png")
-			parts[l].setWeight(0.66)
-		for l in range(9, 15):
-			# Load the image files and set the constraints
-			parts[l].loadImage("image_resources/leg_yellow.png")
-		self.parts = parts
+			if True:
+				for i in range(0, 2):
+					parts.append(Part(randint(0, 360), 0, 0, False, 12))
+					parts.append(Part(randint(0, 360), 0, 0, False, 12))
+					parts.append(Part(randint(0, 360), 0, 0, False, 12))
+					parts.append(Part(randint(0, 360), 0, 0, False, 12))
+					parts.append(Part(randint(0, 360), 0, 0, False, 12))
+					parts.append(Part(randint(0, 360), 0, 0, False, 12))
+			else:
+				# Normal Spawn
+				for i in range(0, 2):
+					parts.append(Part(310, 0, 0, False, 12))
+					parts.append(Part(50, 0, 0, False, 12))
+					parts.append(Part(50, 0, 0, False, 12))
+					parts.append(Part(0, 0, 0, False, 12))
+					parts.append(Part(0, 0, 0, False, 12))
+					parts.append(Part(0, 0, 0, False, 12))
+			# Add the leg parts
+			for l in range(3, 15):
+				# Load the image files and set the constraints
+				parts[l].loadImage("image_resources/leg_green.png")
+				parts[l].setWeight(0.66)
+			for l in range(9, 15):
+				# Load the image files and set the constraints
+				parts[l].loadImage("image_resources/leg_yellow.png")
+			self.parts = parts
+			self.setPositions(self.xy)
 		self.setConstraints()
-		self.setPositions(self.xy)
 		self.prevMove = -1
 		if self.button == False:
 			score = score - self.c[0]
@@ -103,12 +109,11 @@ class Agent:
 		self.button = True
 		return self.collide(0)
 
-
 	# Handles movement calculations
 	def move(self, timer, show):
+		self.show = show
 		parts = self.parts
 		pos = parts[0].getPosition()
-		cog = self.getCog()[0]
 		self.stored(True)
 		amountOfMoves = 0
 		moveTracker = []
@@ -119,34 +124,32 @@ class Agent:
 		pivot = self.gravity(pivot, 30)
 		usedMoves = []
 		for i in range(4):
+			cog = self.getCog()[0]
 			self.stored(True)
 			self.inputs(pivot, i)
-			up_probability = self.network.forward_pass(self.networkInput)[0]
 			self.new = True
 			# Pick a move
 			count = True
 			zd = 0
 
-
-
-			random = False
-			if (randint(0,100) < 20):
+			if self.random[i]:
 				up_probability = self.randomAgent.move(self.networkInput, self.button, moveTracker)
 				random = True
+			else:
+				up_probability = self.network.forward_pass(self.networkInput)[0]
+				random = False
 			move = np.argmax(up_probability)
-			if show:
-				if random:
-					print("yes")
-				else:
-					print("no")
-			while move is not 30 and (move % 15) in usedMoves:
+
+			while True:
+				if move == 30 or ((move % 15) not in usedMoves):
+					break
 
 				up_probability[move] = 0
 				move = np.argmax(up_probability)
-				zd += 1
+				if np.max(up_probability) == 0:
+					move = 30
 
-			if np.max(up_probability) == 0:
-				move = 30
+			zd += 1
 
 			movement = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 			if move != 30:
@@ -157,10 +160,10 @@ class Agent:
 					elif k == move - 15:
 						movement[k] = -1
 						break
-
 				self.setConstraints()
-
 				backMove = parts[k].rotation(movement[k])
+				oldPivot = (pivot[0], pivot[1])
+
 				if k == 0:
 					pivot = (pivot[0] + backMove[0], pivot[1] + backMove[1])
 				if(k > 2 and k < 6 or k > 8 and k < 12):
@@ -171,17 +174,21 @@ class Agent:
 				if self.collide(2):
 					count = False
 					self.stored(False)
+					if k == 0 and backMove[0] != 0:
+						#print("used to slide")
+						pivot = (oldPivot[0], oldPivot[1])
+						self.setPositions(pivot)
 				elif self.collide(1):
 					self.stored(False)
 					amountOfMoves = amountOfMoves + 1
 					distChange = self.interactiveMove(move % 15, movement[k])
+					#print(move, distChange)
 					pivot = (pivot[0] + distChange[0], pivot[1] + distChange[1])
 					self.setPositions(pivot)
+					if show:
+						print(i, pivot)
 
 					if self.collide(1):
-						self.stored(False)
-						print("Fail 2", distChange)
-
 						pivot = (pivot[0], pivot[1] - 2)
 
 						parts[move % 15].rotation(movement[k])
@@ -189,26 +196,37 @@ class Agent:
 							parts[(move % 15) + 3].rotation(movement[k])
 						self.setPositions(pivot)
 						double = True
-						xDiff = self.getCog()[0] - cog
-						pivot = (pivot[0] - xDiff, pivot[1])
-						self.setPositions(pivot)
+						#xDiff = self.getCog()[0] - cog
+						#pivot = (pivot[0] - xDiff, pivot[1])
+						#print(xDiff)
+						#self.setPositions(pivot)
+						if show:
+							print(i, pivot)
 
 						if self.collide(1):
 							self.stored(False)
-							print("Fail 3")
+							pivot = (oldPivot[0], oldPivot[1])
 							double = False
 						else:
-							pivot = self.gravity(pivot, 20)
-
-			if show:
-				print(move, count, zd)
+							pivot = self.gravity(pivot, 30)
+					else:
+						pivot = self.gravity(pivot, 10)
 
 			self.centerOfGravity(pivot, double)
+
+			self.stored(True)
+			self.box = [(-1,-1), (-1,-1), (-1,-1), (-1,-1)]
+			pivot = (pivot[0], pivot[1] + 1)
+			self.setPositions(pivot)
+			self.collide(1)
+			self.stored(False)
+			pivot = (pivot[0], pivot[1] - 1)
+
 			# If the agents center of gravity is to the left of all its points of contacts fall to the left
-			if self.box[0][0] != -1 and self.box[0][0] > self.cog[0]:
+			if self.box[0][0] != -1 and self.box[0][0] > self.cog[0] + 1:
 				passed = self.fallRotation(pivot, True)
 			# If the agents center of gravity is to the right of all its points of contacts fall to the right
-			elif self.box[1][0] != -1 and self.box[1][0] < self.cog[0]:
+			elif self.box[1][0] != -1 and self.box[1][0] < self.cog[0] - 1:
 				passed = self.fallRotation(pivot, False)
 			elif self.box[0][0] <= self.cog[0] and self.box[1][0] >= self.cog[0] and self.button:
 				self.c = self.cog
@@ -225,22 +243,23 @@ class Agent:
 			x = self.ended(move, timer, self.button, i)
 			if i == 3:
 				if show:
+					print(usedMoves)
 					print("----------------")
 				return x
 
 
 	def ended(self, move, timer, button, turn):
-		if not button:
+		if not button and move < 30:
 			score = self.getCog()[0] - self.c[0]
 			reward = 0
-			if timer < 0 and score < 6 and turn == 3:
-				reward = (score - 6) / 120
+			if timer < 0 and score < 3 and turn == 3:
+				reward = (score - 3) / 120
 			elif timer < 0 and score < 30 and turn == 3:
 				reward = score / 200
 			elif timer < 0 and turn == 3:
 				reward = score / 120
 
-			output = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+			output = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 			output[move] = 1
 
 			self.episode_reward_sum += reward
@@ -289,7 +308,7 @@ class Agent:
 
 
 
-	def legalMove(self, move, pivot, show):
+	def legalMove(self, move, pivot):
 		if move == -1:
 			return True
 		elif randint(0,100) < 10:
@@ -349,12 +368,17 @@ class Agent:
 		colliding = self.colliding
 		parts = self.parts
 		initialPos = parts[move % 15].getPivot()
+
+
 		distance = (initialPos[0] - colliding[0][0], initialPos[1] - colliding[0][1])
 		hypD = math.sqrt(distance[0] * distance[0] + distance[1] * distance[1])
 
 		rotation = (math.atan(distance[0] / distance[1]) * 180.0 / math.pi) - direction
 		newPos = (hypD * math.sin(rotation * math.pi / 180.0), hypD * math.cos(rotation * math.pi / 180.0))
+
 		newPos = (newPos[0] + distance[0], newPos[1] + distance[1] - 1.0)
+		if (move % 15) < 3:
+			newPos = (0, newPos[1])
 
 		parts[move].rotation(direction)
 		if ((move - 3) % 6) < 3:
@@ -497,13 +521,6 @@ class Agent:
 			weight += parts[i].getWeight()
 		# Divide by the total weight of the agent
 		self.cog = (self.cog[0] / weight, self.cog[1] / weight)
-
-		self.stored(True)
-		self.box = [(-1,-1), (-1,-1), (-1,-1), (-1,-1)]
-		pivot = (pivot[0], pivot[1] + 1.5)
-		self.setPositions(pivot)
-		self.collide(1)
-		self.stored(False)
 
 
 
