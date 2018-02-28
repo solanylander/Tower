@@ -45,6 +45,7 @@ class random_network:
 		#self.gameMemory = []
 		#self.prevObs = []
 		self.model.set_weights(self.network.W, np.random.rand(128, 30))
+		print("randomize")
 		#print("here")
 
 	def initialiseNetwork(self):

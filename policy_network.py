@@ -25,8 +25,14 @@ class Network:
             activation=tf.nn.relu,
             kernel_initializer=tf.contrib.layers.xavier_initializer())
 
-        self.up_probability = tf.layers.dense(
+        g = tf.layers.dense(
             h,
+            units=hidden_layer_size,
+            activation=tf.nn.relu,
+            kernel_initializer=tf.contrib.layers.xavier_initializer())
+
+        self.up_probability = tf.layers.dense(
+            g,
             units=30,
             activation=tf.sigmoid,
             kernel_initializer=tf.contrib.layers.xavier_initializer())
@@ -54,10 +60,12 @@ class Network:
         self.saver = tf.train.Saver()
         self.checkpoint_file = os.path.join(checkpoints_dir,
                                             'policy_network.ckpt')
+        self.checkpoint_file_updated = os.path.join(checkpoints_dir,
+                                            'policy_network_update.ckpt')
     #Good
     def load_checkpoint(self):
         print("Loading checkpoint...")
-        self.saver.restore(self.sess, self.checkpoint_file)
+        self.saver.restore(self.sess, self.checkpoint_file_updated)
     #Good
     def save_checkpoint(self):
         print("Saving checkpoint...")

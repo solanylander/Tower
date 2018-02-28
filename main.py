@@ -33,7 +33,7 @@ pygame.display.set_caption("Ant Tower Project")
 FPS = 120
 trainingNum = 10000
 duration = 1000
-switch = False
+switch = 0
 
 # Get the image resources for the world
 pointers = [None, None, None]
@@ -60,6 +60,8 @@ timer = duration
 counter = 0
 show = False
 reset = False
+pause = False
+resetCounter = 0
 # main loop
 while True:
 	# Key Listeners for movement and quitting
@@ -70,60 +72,71 @@ while True:
 		if event.type == KEYDOWN:
 			if event.key == K_q:
 				counter = trainingNum - 1
-			elif event.key == K_p:
+			elif event.key == K_r:
 				switch = not switch
+			elif event.key == K_p:
+				pause = not pause
 			elif event.key == K_s:
 				counter = counter - 1
 				timer = -1
+			elif event.key == K_b:
+				show = 2
 			elif event.key == K_n:
-				show = True
+				show = 1
 			elif event.key == K_m:
-				show = False
+				show = 0
 				print("stop")
-	if timer < 0:
-		timer = duration
-		counter = counter + 1
-		x = (trainingNum - counter) / 4.48
-		for k in range(len(agents)):
-			if counter % 20 == 0 and not reset:
-				agents[k].finishEpisode()
-			score = agents[k].getCog()[0]
-			if counter % 5 == 0:
-				agents[k].reset(counter < trainingNum, score, False, True)
+	if not pause:
+		if timer < 0:
+			timer = duration
+			counter = counter + 1
+			x = (trainingNum - counter) / 4.48
+			for k in range(len(agents)):
+				if counter % 20 == 0 and not reset:
+					agents[k].finishEpisode()
+				score = agents[k].getCog()[0]
+				if counter % 5 == 0 or resetCounter == 3:
+					agents[k].reset(counter < trainingNum, score, False, True)
+				else:
+					agents[k].reset(counter < trainingNum, score, False, False)
+				agents[k].randomAgent.nextGame()
+			prev = counter
+			print("----")
+			reset = False
+		else:
+			timer = timer - 1
+			if timer == 333 or timer == 666:
+				agents[0].randomAgent.nextGame()
+
+
+		if timer == duration - 2:
+			if agents[0].collide(False):
+				timer = -1
+				counter = counter - 1
+				print("Reset")
+				reset = True
+				resetCounter += 1
 			else:
-				agents[k].reset(counter < trainingNum, score, False, False)
-			agents[k].randomAgent.nextGame()
-		prev = counter
-		print("----")
-		reset = False
-	else:
-		timer = timer - 1
+				resetCounter = 0
 
-	if timer == duration - 2:
-		if agents[0].collide(False):
-			timer = -1
-			counter = counter - 1
-			print("Reset")
-			reset = True
-
-	# Control specific agents
-	for j in range(len(agents)):
-		if agents[j].move(timer, show):
-			timer = -1
-	if  (counter >= trainingNum) or switch:
-		# Draw world
-		DS.fill(BLUE)
-		for i in range(len(blocks)):
-			DS.blit(blocks[i].getImage(), blocks[i].getPosition())
-		# Draw agents
-		for i in range(len(agents)):
-			agents[i].run(DS)
-			# Pointer for agents center of gravity
-			cog = agents[i].getCog()
-			DS.blit(pointers[1], (int(cog[0]), int(cog[1])))
-			markers = agents[i].getMarkers()
-			# Pointer for collision points
-			for j in range(len(markers)):
-				DS.blit(pointers[0], (int(markers[j][0]), int(markers[j][1])))
-		pygame.display.update()
-		CLOCK.tick(FPS)
+		# Control specific agents
+		for j in range(len(agents)):
+			if agents[j].move(timer, show):
+				timer = -1
+		if  (counter >= trainingNum) or switch:
+			# Draw world
+			DS.fill(BLUE)
+			for i in range(len(blocks)):
+				DS.blit(blocks[i].getImage(), blocks[i].getPosition())
+			# Draw agents
+			for i in range(len(agents)):
+				agents[i].run(DS)
+				# Pointer for agents center of gravity
+				cog = agents[i].getCog()
+				DS.blit(pointers[1], (int(cog[0]), int(cog[1])))
+				markers = agents[i].getMarkers()
+				# Pointer for collision points
+				for j in range(len(markers)):
+					DS.blit(pointers[0], (int(markers[j][0]), int(markers[j][1])))
+			pygame.display.update()
+			CLOCK.tick(FPS)
