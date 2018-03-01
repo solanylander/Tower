@@ -8,6 +8,8 @@ import pickle
 import time
 import numpy as np
 
+MAX_BODY_ROTATION = 0
+
 class Agent:
 
 	def __init__(self, xy, args):
@@ -42,7 +44,7 @@ class Agent:
 		self.button = True
 		self.max = 0
 		# Reset Agent
-		self.random = [False,False,False,False]	
+		self.random = [False,False,False,False,False,False]	
 		self.reset(True, 0, True, True)
 		self.box = [(-1,-1), (-1,-1), (-1,-1), (-1,-1)]
 		# Initialise the backup storage for the parts information with 0 values
@@ -53,9 +55,9 @@ class Agent:
 	# Reset agent
 	def reset(self, stage, score, init, hardReset):
 		parts = []
-		random = [self.random[0],self.random[1],self.random[2],self.random[3]]
-		while random[0] == self.random[0] and random[1] == self.random[1] and random[2] == self.random[2] and random[3] == self.random[3]:
-			for i in range(4):
+		random = [self.random[0],self.random[1],self.random[2],self.random[3],self.random[4],self.random[5]]
+		while random[0] == self.random[0] and random[1] == self.random[1] and random[2] == self.random[2] and random[3] == self.random[3] and random[4] == self.random[4] and random[5] == self.random[5]:
+			for i in range(6):
 				if randint(0,100) < 20:
 					random[i] = True
 				else:
@@ -69,9 +71,9 @@ class Agent:
 			if True:
 				z = randint(0, 360)
 				parts.append(Part(z, self.xy[0], self.xy[1], True, 50))
-				z = (z + randint(-30, 30)) % 360
+				z = (z + randint(-MAX_BODY_ROTATION, MAX_BODY_ROTATION + 1)) % 360
 				parts.append(Part(z, 0, 0, False, 50))
-				z = (z + randint(-30, 30)) % 360
+				z = (z + randint(-MAX_BODY_ROTATION, MAX_BODY_ROTATION + 1)) % 360
 				parts.append(Part(z, 0, 0, False, 50))
 			else:
 				# Normal Spawn
@@ -142,7 +144,7 @@ class Agent:
 		pivot = self.gravity(pivot, 30)
 		usedMoves = []
 		usedRotations = []
-		for i in range(4):
+		for i in range(6):
 			cog = self.getCog()[0]
 			self.stored(True)
 			self.inputs(pivot, i)
@@ -151,7 +153,7 @@ class Agent:
 			count = True
 			zd = 0
 
-			if self.random[i]:
+			if self.random[i] and randint(0,100) < 70:
 				up_probability = self.randomAgent.move(self.networkInput, self.button, moveTracker)
 				random = True
 			else:
@@ -160,7 +162,7 @@ class Agent:
 			move = np.argmax(up_probability)
 
 			while True:
-				if (move == 30 or ((move % 15) not in usedMoves)) and self.legalMove(move, pivot):
+				if move == 30 or (((move % 15) not in usedMoves) and move % 15 > 2):# and self.legalMove(move, pivot):
 					break
 
 				up_probability[move] = 0
@@ -284,12 +286,11 @@ class Agent:
 			if show == 2:
 				print(8, i, move, pivot, self.collide(1), parts[move % 15].getRotation())
 
-
 			x = self.ended(move, timer, self.button, i)
 			if show == 2:
 				print(9, i, move, pivot, self.collide(1), parts[move % 15].getRotation())
 
-			if i == 3:
+			if i == 5:
 				if show > 0:
 					print(usedRotations)
 					print("----------------")
@@ -389,25 +390,35 @@ class Agent:
 	def inputs(self, pivot, turn):
 		parts = self.parts
 		objects = self.objects
-		netInputs = []
-		for i in range(len(parts)):
+		if turn == 0:
+			netInputs = []
+			for i in range(len(parts)):
 				netInputs.append(parts[i].getRotation() / 360.0)
-		#		for j in range(0,2):
-		#			parts[i].rotation(-1 + (j * 2))
-		#			if(i > 2 and i < 6 or i > 8 and i < 12):
-		#				parts[i + 3].rotation(-1 + (j * 2))
-		#			self.setPositions(pivot)
-		#			boolToInt = 0
-		#			if self.collide(1):
-		#				boolToInt = 1
-		#			netInputs.append(boolToInt)
-		#			self.stored(False)
-		for j in range(4):
-			if j == turn:
-				netInputs.append(1)
-			else:
-				netInputs.append(0)
-		self.networkInput = netInputs
+				for j in range(0,2):
+					timeQ = time.time()
+					matchingTime = timeQ
+					timeFrom = 0
+					parts[i].rotation(-1 + (j * 2))
+					if(i > 2 and i < 6 or i > 8 and i < 12):
+						parts[i + 3].rotation(-1 + (j * 2))
+					self.setPositions(pivot)
+					boolToInt = 0
+					if self.collide(1):
+						boolToInt = 1
+					netInputs.append(boolToInt)
+					self.stored(False)
+			for j in range(6):
+				if j == turn:
+					netInputs.append(1)
+				else:
+					netInputs.append(0)
+			self.networkInput = netInputs
+		else:
+			for i in range(len(parts)):
+				self.networkInput[i]  = parts[i].getRotation() / 360.0
+			self.networkInput[44 + turn] = 0
+			self.networkInput[45 + turn] = 1
+
 
 	# When the agent pushes off with a leg the rest of its body should follow
 	def interactiveMove(self, move, direction, cog):
@@ -597,9 +608,9 @@ class Agent:
 	# Set the constraints of each part
 	def setConstraints(self):
 		parts = self.parts
-		parts[0].setConstraint(((parts[1].getRotation() - 30) % 360, (parts[1].getRotation() + 30) % 360))
-		parts[1].setConstraint(((parts[0].getRotation() - 30) % 360, (parts[0].getRotation() + 30) % 360))
-		parts[2].setConstraint(((parts[1].getRotation() - 30) % 360, (parts[1].getRotation() + 30) % 360))
+		parts[0].setConstraint(((parts[1].getRotation() - MAX_BODY_ROTATION) % 360, (parts[1].getRotation() + MAX_BODY_ROTATION) % 360))
+		parts[1].setConstraint(((parts[0].getRotation() - MAX_BODY_ROTATION) % 360, (parts[0].getRotation() + MAX_BODY_ROTATION) % 360))
+		parts[2].setConstraint(((parts[1].getRotation() - MAX_BODY_ROTATION) % 360, (parts[1].getRotation() + MAX_BODY_ROTATION) % 360))
 		for i in range(0,2):
 			offset = i * 6
 			parts[3 + offset].setConstraint((0, 360))

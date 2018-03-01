@@ -2,7 +2,7 @@ import os.path
 import numpy as np
 import tensorflow as tf
 
-OBSERVATIONS_SIZE = 19
+OBSERVATIONS_SIZE = 51
 
 
 class Network:
@@ -62,14 +62,16 @@ class Network:
                                             'policy_network.ckpt')
         self.checkpoint_file_updated = os.path.join(checkpoints_dir,
                                             'policy_network_update.ckpt')
+        self.checkpoint_file_51 = os.path.join(checkpoints_dir,
+                                            'policy_network_51.ckpt')
     #Good
     def load_checkpoint(self):
         print("Loading checkpoint...")
-        self.saver.restore(self.sess, self.checkpoint_file_updated)
+        self.saver.restore(self.sess, self.checkpoint_file_51)
     #Good
     def save_checkpoint(self):
         print("Saving checkpoint...")
-        self.saver.save(self.sess, self.checkpoint_file)
+        self.saver.save(self.sess, self.checkpoint_file_51)
     #Good
     def forward_pass(self, observations):
         observations = np.array(observations)

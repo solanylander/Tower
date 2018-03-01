@@ -19,21 +19,6 @@ class random_network:
 		self.max = 0
 
 
-	def initialPopulation(self, observation, store):
-		observation = np.array(observation)
-		while True:
-			action = random.randrange(0,30)
-			if action < 15:
-				if observation[(action * 3) + 159] == 0:
-					break
-			else:
-				if observation[((action - 15) * 3) + 158] == 0:
-					break
-		if not store:
-			self.gameMemory.append([observation, action])
-		return action
-
-
 	def nextGame(self):
 		#if score > 4:
 		#	self.acceptedScores.append(score)
@@ -118,7 +103,7 @@ class random_network:
 		#X = np.array([i[0] for i in trainingData]).reshape(-1, len(trainingData[0][0]), 1)
 		#y = [i[1] for i in trainingData]
 
-		self.model = self.neuralNetworkModel(input_size = 19)
+		self.model = self.neuralNetworkModel(input_size = 51)
 
 		#self.model.fit({'input':X}, {'targets':y}, n_epoch=5, snapshot_step=500, show_metric=True, run_id='openaistuff')
 

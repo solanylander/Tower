@@ -105,8 +105,8 @@ while True:
 			reset = False
 		else:
 			timer = timer - 1
-			if timer == 333 or timer == 666:
-				agents[0].randomAgent.nextGame()
+			#if timer == 333 or timer == 666:
+			#	agents[0].randomAgent.nextGame()
 
 
 		if timer == duration - 2:
