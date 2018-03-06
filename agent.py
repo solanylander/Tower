@@ -8,7 +8,7 @@ import pickle
 import time
 import numpy as np
 
-MAX_BODY_ROTATION = 0
+MAX_BODY_ROTATION = 90
 
 class Agent:
 
@@ -29,9 +29,13 @@ class Agent:
 		self.episode_reward_sum = 0
 		self.round_n = 1
 		self.randomAgent = random_network()
+		self.networkInput = []
+		for i in range(81):
+			self.networkInput.append(0)
 		# Center of gravity
 		self.cog = (0,0)
 		self.rotations = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
+		self.prevMoves = [(-1,0),(-1,0),(-1,0),(-1,0),(-1,0),(-1,0)]
 		# Run counter
 		self.counter = 0
 		# Total distance counter
@@ -58,7 +62,7 @@ class Agent:
 		random = [self.random[0],self.random[1],self.random[2],self.random[3],self.random[4],self.random[5]]
 		while random[0] == self.random[0] and random[1] == self.random[1] and random[2] == self.random[2] and random[3] == self.random[3] and random[4] == self.random[4] and random[5] == self.random[5]:
 			for i in range(6):
-				if randint(0,100) < 20:
+				if randint(0,100) < 35:
 					random[i] = True
 				else:
 					random[i] = False
@@ -71,9 +75,9 @@ class Agent:
 			if True:
 				z = randint(0, 360)
 				parts.append(Part(z, self.xy[0], self.xy[1], True, 50))
-				z = (z + randint(-MAX_BODY_ROTATION, MAX_BODY_ROTATION + 1)) % 360
+				z = (z + randint(-0, 0 + 1)) % 360
 				parts.append(Part(z, 0, 0, False, 50))
-				z = (z + randint(-MAX_BODY_ROTATION, MAX_BODY_ROTATION + 1)) % 360
+				z = (z + randint(-0, 0 + 1)) % 360
 				parts.append(Part(z, 0, 0, False, 50))
 			else:
 				# Normal Spawn
@@ -92,12 +96,13 @@ class Agent:
 
 			if True:
 				for i in range(0, 2):
-					parts.append(Part(randint(0, 360), 0, 0, False, 12))
-					parts.append(Part(randint(0, 360), 0, 0, False, 12))
-					parts.append(Part(randint(0, 360), 0, 0, False, 12))
-					parts.append(Part(randint(0, 360), 0, 0, False, 12))
-					parts.append(Part(randint(0, 360), 0, 0, False, 12))
-					parts.append(Part(randint(0, 360), 0, 0, False, 12))
+					rands = [randint(0, 360),randint(0, 360),randint(0, 360)]
+					parts.append(Part(rands[0], 0, 0, False, 12))
+					parts.append(Part(rands[1], 0, 0, False, 12))
+					parts.append(Part(rands[2], 0, 0, False, 12))
+					parts.append(Part(rands[0], 0, 0, False, 12))
+					parts.append(Part(rands[1], 0, 0, False, 12))
+					parts.append(Part(rands[2], 0, 0, False, 12))
 			else:
 				# Normal Spawn
 				for i in range(0, 2):
@@ -110,7 +115,6 @@ class Agent:
 
 			for i in range(15):
 				self.rotations[i] = parts[i].getRotation()
-
 			# Add the leg parts
 			for l in range(3, 15):
 				# Load the image files and set the constraints
@@ -122,7 +126,6 @@ class Agent:
 			self.parts = parts
 			self.setPositions(self.xy)
 		self.setConstraints()
-		self.prevMove = -1
 		if self.button == False:
 			score = score - self.c[0]
 			self.total = self.total + score
@@ -131,6 +134,7 @@ class Agent:
 
 	# Handles movement calculations
 	def move(self, timer, show):
+		prevMoves = []
 		self.show = show
 		parts = self.parts
 		pos = parts[0].getPosition()
@@ -144,7 +148,10 @@ class Agent:
 		pivot = self.gravity(pivot, 30)
 		usedMoves = []
 		usedRotations = []
-		for i in range(6):
+		if show == 2:
+			print(self.prevMoves)
+
+		for i in range(0,6):
 			cog = self.getCog()[0]
 			self.stored(True)
 			self.inputs(pivot, i)
@@ -162,20 +169,20 @@ class Agent:
 			move = np.argmax(up_probability)
 
 			while True:
-				if move == 30 or (((move % 15) not in usedMoves) and move % 15 > 2):# and self.legalMove(move, pivot):
+				if move == 30 or (((move % 15) not in usedMoves) and (move % 15) % 6 > 2) and self.legalMove(move, pivot):
 					break
 
 				up_probability[move] = 0
 				move = np.argmax(up_probability)
 				if np.max(up_probability) == 0:
 					move = 30
-
 			zd += 1
 			if show == 2:
 				print(1, i, move, pivot, self.collide(2), parts[move % 15].getRotation())
 
 			movement = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 			if move != 30:
+				interMoved = False
 				for k in range(len(movement)):
 					if k == move:
 						movement[k] = 1
@@ -196,6 +203,8 @@ class Agent:
 
 				if show == 2:
 					print(2, i, move, pivot, self.collide(2), parts[move % 15].getRotation())
+
+				resetGravity = 0
 
 				if self.collide(2):
 					count = False
@@ -239,11 +248,42 @@ class Agent:
 						if self.collide(1):
 							self.stored(False)
 							pivot = (oldPivot[0], oldPivot[1])
+							reverted = True
 							double = False
 						else:
-							pivot = self.gravity(pivot, 30)
+							resetGravity = 30
 					else:
-						pivot = self.gravity(pivot, 10)
+						resetGravity = 10
+					if resetGravity is not 0:
+						interMoved = True
+						pivot = self.gravity(pivot, resetGravity)
+						if move < 15:
+							prevMoves.append((move + 15, distChange[0]))
+						else:
+							prevMoves.append((move - 15, distChange[0]))
+
+				prevMoveNumber = -1
+				for z in range(len(self.prevMoves)):
+					if self.prevMoves[z][0] == move and self.prevMoves[z][1] is not 0:
+						prevMoveNumber = z
+						break
+
+
+				if prevMoveNumber is not -1 and not interMoved:
+					self.stored(True)
+					oldPivot = (pivot[0], pivot[1])
+
+					pivot = (pivot[0] -self.prevMoves[prevMoveNumber][1], pivot[1] - 3.0)
+					self.setPositions(pivot)
+					if self.collide(1):
+						self.stored(False)
+						print("Fail, Previous move could not be reverted")
+					else:
+						pivot = self.gravity(pivot, 30)
+
+
+
+
 
 			self.centerOfGravity(pivot, double)
 
@@ -278,7 +318,6 @@ class Agent:
 			if move != 30:
 				usedMoves.append(move % 15)
 			usedRotations.append(move)
-
 			if self.collide(2):
 				if show == 2:
 					print("tweak")
@@ -291,6 +330,7 @@ class Agent:
 				print(9, i, move, pivot, self.collide(1), parts[move % 15].getRotation())
 
 			if i == 5:
+				self.prevMoves = prevMoves
 				if show > 0:
 					print(usedRotations)
 					print("----------------")
@@ -301,12 +341,10 @@ class Agent:
 		if not button and move < 30:
 			score = self.getCog()[0] - self.c[0]
 			reward = 0
-			if timer < 0 and score < 3 and turn == 3:
-				reward = (score - 3) / 120
-			elif timer < 0 and score < 30 and turn == 3:
-				reward = score / 200
-			elif timer < 0 and turn == 3:
-				reward = score / 120
+			if timer < 0 and turn == 5:
+				reward = score - 3
+				if score == 3:
+					reward -= 0.01
 
 			output = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 			output[move] = 1
@@ -314,7 +352,7 @@ class Agent:
 			self.episode_reward_sum += reward
 			tup = (self.networkInput, output, reward)
 			self.batch_state_action_reward_tuples.append(tup)
-			if turn == 3:
+			if turn == 5:
 				if reward < 0:
 					print("Round %d; Score: %0.3f, Reward: %0.3f,  lost..." % (self.round_n, score, reward))
 				elif reward > 0:
@@ -395,17 +433,22 @@ class Agent:
 			for i in range(len(parts)):
 				netInputs.append(parts[i].getRotation() / 360.0)
 				for j in range(0,2):
-					timeQ = time.time()
-					matchingTime = timeQ
-					timeFrom = 0
 					parts[i].rotation(-1 + (j * 2))
 					if(i > 2 and i < 6 or i > 8 and i < 12):
 						parts[i + 3].rotation(-1 + (j * 2))
 					self.setPositions(pivot)
-					boolToInt = 0
+					boolToIntWorld = 0
+					boolToIntSelf = 0
 					if self.collide(1):
-						boolToInt = 1
-					netInputs.append(boolToInt)
+						boolToIntWorld = 1
+					if self.collide(2):
+						boolToIntSelf = 1
+					if boolToIntWorld is 0 and self.networkInput[len(netInputs)] > 0.25:
+						boolToIntWorld = self.networkInput[len(netInputs)] - 0.25
+					netInputs.append(boolToIntWorld)
+					if boolToIntSelf is 0 and self.networkInput[len(netInputs)] > 0.25:
+						boolToIntSelf = self.networkInput[len(netInputs)] - 0.25
+					netInputs.append(boolToIntSelf)
 					self.stored(False)
 			for j in range(6):
 				if j == turn:
@@ -413,11 +456,13 @@ class Agent:
 				else:
 					netInputs.append(0)
 			self.networkInput = netInputs
+			if self.show == 1:
+				print(netInputs)
 		else:
 			for i in range(len(parts)):
-				self.networkInput[i]  = parts[i].getRotation() / 360.0
-			self.networkInput[44 + turn] = 0
-			self.networkInput[45 + turn] = 1
+				self.networkInput[i * 5]  = parts[i].getRotation() / 360.0
+			self.networkInput[74 + turn] = 0
+			self.networkInput[75 + turn] = 1
 
 
 	# When the agent pushes off with a leg the rest of its body should follow

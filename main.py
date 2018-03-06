@@ -31,8 +31,8 @@ CLOCK = pygame.time.Clock()
 DS = pygame.display.set_mode((W, H))
 pygame.display.set_caption("Ant Tower Project")
 FPS = 120
-trainingNum = 10000
-duration = 1000
+trainingNum = 20000
+duration = 600
 switch = 0
 
 # Get the image resources for the world
@@ -92,10 +92,10 @@ while True:
 			counter = counter + 1
 			x = (trainingNum - counter) / 4.48
 			for k in range(len(agents)):
-				if counter % 20 == 0 and not reset:
+				if counter % 30 == 0 and not reset:
 					agents[k].finishEpisode()
 				score = agents[k].getCog()[0]
-				if counter % 5 == 0 or resetCounter == 3:
+				if counter % 30 == 0 or resetCounter == 3:
 					agents[k].reset(counter < trainingNum, score, False, True)
 				else:
 					agents[k].reset(counter < trainingNum, score, False, False)

@@ -29,7 +29,7 @@ class random_network:
 		#self.scores.append(score)
 		#self.gameMemory = []
 		#self.prevObs = []
-		self.model.set_weights(self.network.W, np.random.rand(128, 30))
+		self.model.set_weights(self.network.W, np.random.rand(300, 30))
 		print("randomize")
 		#print("here")
 
@@ -66,20 +66,7 @@ class random_network:
 		network = fully_connected(network, 128, activation='relu')
 		network = dropout(network, 0.8)
 
-
-		network = fully_connected(network, 256, activation='relu')
-		network = dropout(network, 0.8)
-
-
-		network = fully_connected(network, 512, activation='relu')
-		network = dropout(network, 0.8)
-
-
-		network = fully_connected(network, 256, activation='relu')
-		network = dropout(network, 0.8)
-
-
-		network = fully_connected(network, 128, activation='relu')
+		network = fully_connected(network, 300, activation='relu')
 		network = dropout(network, 0.8)
 
 		network = fully_connected(network, 30, activation='softmax')
@@ -103,7 +90,7 @@ class random_network:
 		#X = np.array([i[0] for i in trainingData]).reshape(-1, len(trainingData[0][0]), 1)
 		#y = [i[1] for i in trainingData]
 
-		self.model = self.neuralNetworkModel(input_size = 51)
+		self.model = self.neuralNetworkModel(input_size = 81)
 
 		#self.model.fit({'input':X}, {'targets':y}, n_epoch=5, snapshot_step=500, show_metric=True, run_id='openaistuff')
 
