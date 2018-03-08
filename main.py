@@ -95,7 +95,7 @@ while True:
 				if counter % 30 == 0 and not reset:
 					agents[k].finishEpisode()
 				score = agents[k].getCog()[0]
-				if counter % 30 == 0 or resetCounter == 3:
+				if counter % 10 == 0 or resetCounter == 3:
 					agents[k].reset(counter < trainingNum, score, False, True)
 				else:
 					agents[k].reset(counter < trainingNum, score, False, False)
