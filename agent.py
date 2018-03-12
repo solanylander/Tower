@@ -45,11 +45,15 @@ class Agent:
 		self.c = None
 		# Spawn position
 		self.xy = xy
+
+		self.won = 0
+		self.lost = 0
+		self.boundary = 100
 		# Valid run
 		self.button = True
 		self.max = 0
 		# Reset Agent
-		self.random = [False,False,False,False,False,False]	
+		self.random = [0,0,0,0,0,0]	
 		self.reset(True, 0, True, True)
 		self.box = [(-1,-1), (-1,-1), (-1,-1), (-1,-1)]
 		# Initialise the backup storage for the parts information with 0 values
@@ -57,21 +61,20 @@ class Agent:
 		for k in range(0,15):
 			self.backup.append(Part(0, 0, 0, False, 0))
 
+	def randomize(self):
+		for i in range(6):
+			self.random[i] = randint(10,50)
+			print("Random", self.random)
+
 	# Reset agent
 	def reset(self, stage, score, init, hardReset):
 		parts = []
 		self.legsFixLocks = [0,0,0,0,0,0]
-		random = [self.random[0],self.random[1],self.random[2],self.random[3],self.random[4],self.random[5]]
-		while random[0] == self.random[0] and random[1] == self.random[1] and random[2] == self.random[2] and random[3] == self.random[3] and random[4] == self.random[4] and random[5] == self.random[5]:
-			for i in range(6):
-				if randint(0,100) < 35:
-					random[i] = True
-				else:
-					random[i] = False
+		for i in range(6):
+			self.random[i] = randint(0,30)
 			#elif randint(0, 100) < 40 and self.reward <= 0:
 			#	self.random
-		self.random = random
-		print(self.random)
+		print("Random", self.random)
 		# add the head and body parts
 		if hardReset:
 			if True:
@@ -147,6 +150,9 @@ class Agent:
 		double = False
 
 		pivot = (pos[0], pos[1])
+		if show == 1:
+			print(pivot)
+			print("-------------")
 		pivot = self.gravity(pivot, 30)
 		usedMoves = []
 		usedRotations = []
@@ -162,7 +168,7 @@ class Agent:
 			count = True
 			zd = 0
 
-			if False:#: and randint(0,100) < 70:
+			if self.random[i] > randint(0,100):
 				up_probability = self.randomAgent.move(self.networkInput, self.button, moveTracker)
 				random = True
 			else:
@@ -171,18 +177,16 @@ class Agent:
 			move = np.argmax(up_probability)
 
 			while True:
-				if bottomPart:
-					if move == 30 or (((move % 15) not in usedMoves) and ((move - 3) % 15) % 6 > 2) and self.legalMove(move, pivot, usedRotations, usedMoves, bottomPart):
-						break
-				else:
-					if move == 30 or (((move % 15) not in usedMoves) and (move % 15) % 6 > 2) and self.legalMove(move, pivot, usedRotations, usedMoves, bottomPart):
-						break
+				if move == 30 or ((move % 15) not in usedMoves and self.legalMove(move, pivot, usedRotations, usedMoves, bottomPart)):
+					break
 
 				up_probability[move] = 0
 				move = np.argmax(up_probability)
 				if np.max(up_probability) == 0:
 					move = 30
 			zd += 1
+			if show == 1:
+				print("Before Movement", pivot)
 
 			movement = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 			if move != 30:
@@ -202,6 +206,8 @@ class Agent:
 					pivot = (pivot[0] + backMove[0], pivot[1] + backMove[1])
 				if(k > 2 and k < 6 or k > 8 and k < 12):
 					parts[k + 3].rotation(movement[k])
+				if show == 1:
+					print("After Backmove:", pivot)
 
 				self.setPositions(pivot)
 
@@ -223,6 +229,8 @@ class Agent:
 					q = self.getCog()
 					distChange = self.interactiveMove(move % 15, movement[k], q)
 					pivot = (pivot[0] + distChange[0], pivot[1] + distChange[1])
+					if show == 1:
+						print("After Interactive move:", pivot)
 					if self.collide(1):
 						pivot = (pivot[0], pivot[1] - 2)
 
@@ -285,6 +293,8 @@ class Agent:
 			self.collide(1)
 			self.stored(False)
 			pivot = (pivot[0], pivot[1] - 1)
+			if show == 1:
+				print("Before Fall", pivot)
 			extra = 0
 			# If the agents center of gravity is to the left of all its points of contacts fall to the left
 			if self.box[0][0] != -1 and self.box[0][0] > self.cog[0] + 1:
@@ -296,6 +306,11 @@ class Agent:
 				self.c = self.cog
 				print("click")
 				self.button = False
+			if show == 1:
+				print("After Fall", pivot)
+				print("Box 1:", self.box[0])
+				print("Box 2:", self.box[1])
+				print("Extra:", extra)
 			if extra != 0:
 				pivot = self.gravity(pivot, extra * 10)
 
@@ -306,39 +321,44 @@ class Agent:
 			if self.collide(2):
 				self.tweak(pivot)
 
-			x = self.ended(move, timer, self.button, i)
-			if i == 5 and len(usedMoves) < 6:
-				i = len(usedMoves) - 1
-				bottomPart = True
+			x = self.ended(move, timer, self.button, i, bottomPart)
+			if show == 1:
+				print(move)
+				print("After Tweak:", pivot)
+				if i == 5:
+					print("=============")
+				else:
+					print("-------------")
 			if i == 5:
 				self.prevMoves = prevMoves
 				self.history = usedRotations
 				for j in range(0,6):
 					if self.legsFixLocks[j] == 1:
 						self.legsFixLocks[j] = 2
-				for z in range(2):
-					for y in range(3):
-						if (y + 3 + (z * 6)) not in self.history and (y + 18 + (z * 6)) not in self.history:
-							self.history.append(y + 3 + (z * 6))
-							self.history.append(y + 18 + (z * 6))
 				#print(self.legsFixLocks, usedRotations)
 				return x
 
 
-	def ended(self, move, timer, button, turn):
-		if not button and move < 30:
+	def ended(self, move, timer, button, turn, bottomPart):
+		if not button and (move < 30 or (bottomPart and turn == 5)):
 			score = self.getCog()[0] - self.c[0]
 			reward = 0
-			if timer < 0 and turn == 5:
-				reward = score - 3
-				if score == 3:
-					reward -= 0.01
 
+			if turn == 5 and score > self.boundary:
+				reward = 1
+				self.won += 1
+			elif turn == 5 and score < -15:
+				reward = -1
+				self.lost += 1
+			elif timer > 3000 and turn == 5:
+				reward = -0.25
+				self.lost += 1
 
+			if move == 30:
+				move = 3
 
 			output = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 			output[move] = 1
-
 
 			self.episode_reward_sum += reward
 			tup = (self.networkInput, output, reward)
@@ -358,6 +378,13 @@ class Agent:
 		return False
 
 	def finishEpisode(self):
+		if self.won > 25:
+			self.boundary += 40
+		if self.lost == 30 and self.boundary > 100:
+			self.boundary -= 20
+		self.won = 0
+		self.lost = 0
+		print("Boundary", self.boundary)
 		print("Episode %d finished after %d rounds" % (self.episode_n, self.round_n))
 		print("Current max score:", self.max)
 		# exponentially smoothed version of reward
@@ -415,7 +442,7 @@ class Agent:
 		self.stored(False)
 
 
-		if not bottomPart:
+		if False:#not bottomPart:
 
 
 			thighMove = (move % 15) % 6

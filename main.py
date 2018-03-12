@@ -9,9 +9,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--hidden_layer_size', type=int, default=200)
 parser.add_argument('--learning_rate', type=float, default=0.0005)
 parser.add_argument('--batch_size_episodes', type=int, default=1)
-parser.add_argument('--checkpoint_every_n_episodes', type=int, default=10)
+parser.add_argument('--checkpoint_every_n_episodes', type=int, default=2)
 parser.add_argument('--load_checkpoint', action='store_true')
-parser.add_argument('--discount_factor', type=int, default=1.00)
+parser.add_argument('--discount_factor', type=int, default=0.9999)
 args = parser.parse_args()
 
 
@@ -57,11 +57,13 @@ for i in range(len(agents)):
 		agents[i].addObject((blocks[j].getMask(), blocks[j].getPosition()[0], blocks[j].getPosition()[1]))
 
 timer = duration
+epTimer = 0
 counter = 0
 show = False
 reset = False
 pause = False
 resetCounter = 0
+nextRound = False
 # main loop
 while True:
 	# Key Listeners for movement and quitting
@@ -87,24 +89,27 @@ while True:
 				show = 0
 				print("stop")
 	if not pause:
-		if timer < 0:
+		if nextRound:
+			epTimer = 0
+			nextRound = False
 			timer = duration
 			counter = counter + 1
-			x = (trainingNum - counter) / 4.48
 			for k in range(len(agents)):
 				if counter % 30 == 0 and not reset:
-					agents[k].finishEpisode()
+					agents[0].finishEpisode()
 				score = agents[k].getCog()[0]
-				if counter % 10 == 0 or resetCounter == 3:
-					agents[k].reset(counter < trainingNum, score, False, True)
-				else:
-					agents[k].reset(counter < trainingNum, score, False, False)
+				agents[k].reset(counter < trainingNum, score, False, True)
 				agents[k].randomAgent.nextGame()
 			prev = counter
 			print("----")
 			reset = False
 		else:
 			timer = timer - 1
+			epTimer += 1
+
+		if timer < 0:
+			timer = duration
+			agents[0].randomAgent.nextGame()
 			#if timer == 333 or timer == 666:
 			#	agents[0].randomAgent.nextGame()
 
@@ -116,13 +121,14 @@ while True:
 				print("Reset")
 				reset = True
 				resetCounter += 1
+				nextRound = True
 			else:
 				resetCounter = 0
 
 		# Control specific agents
 		for j in range(len(agents)):
-			if agents[j].move(timer, show):
-				timer = -1
+			if agents[j].move(epTimer, show):
+				nextRound = True
 		if  (counter >= trainingNum) or switch:
 			# Draw world
 			DS.fill(BLUE)

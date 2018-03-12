@@ -58,7 +58,7 @@ class Network:
         tf.global_variables_initializer().run()
 
         self.saver = tf.train.Saver()
-        self.checkpoint_file = os.path.join(checkpoints_dir,
+        self.checkpoint_file_new = os.path.join(checkpoints_dir,
                                             'policy_network.ckpt')
         self.checkpoint_file_updated = os.path.join(checkpoints_dir,
                                             'policy_network_update.ckpt')
@@ -100,9 +100,11 @@ class Network:
 
     def discount_rewards(self, rewards, discount_factor):
         discounted_rewards = np.zeros_like(rewards)
+        print(len(rewards))
         for t in range(len(rewards)):
             discounted_reward_sum = 0
             discount = 1
+            through = 0
             for k in range(t, len(rewards)):
                 discounted_reward_sum += rewards[k] * discount
                 discount *= discount_factor
