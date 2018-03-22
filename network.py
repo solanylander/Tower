@@ -29,8 +29,9 @@ class random_network:
 		#self.scores.append(score)
 		#self.gameMemory = []
 		#self.prevObs = []
-		self.model.set_weights(self.network.W, np.random.rand(300, 30))
-		print("randomize")
+		#self.model.set_weights(self.network.W, np.random.rand(300, 30))
+		self.constant = np.random.rand(30, 1)
+		#print("randomize")
 		#print("here")
 
 	def initialiseNetwork(self):
@@ -110,6 +111,12 @@ class random_network:
 		self.observation = np.reshape(observation, (-1, len(observation), 1))
 		self.prediction = self.model.predict(self.observation)[0]
 		return self.prediction
+
+	def constantRandom(self):
+		return self.constant
+
+	def trulyRandom(self):
+		return np.random.rand(30, 1)
 
 	def store(self, observation, action):
 			self.gameMemory.append([observation, action])

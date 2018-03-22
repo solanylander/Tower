@@ -13,12 +13,13 @@ class Part:
 	    return rotatedImage
 
 	# Initialise a body part with a rotation, position and if it is the main piece (back body segment)
-	def __init__(self, rotate, x, y, main, width):
+	def __init__(self, rotate, x, y, main, width, number):
 		self.rotate = rotate
 		self.position = (x, y)
 		self.main = main
 		self.sensorLoad = []
 		self.width = width
+		self.number = number
 
 	# Load an body parts image and save it
 	def loadImage(self, image):
@@ -71,37 +72,44 @@ class Part:
 	def rotation(self, amount):
 		# When the back part is rotated it needs a pivot so the connecting point to the front torso is used
 		distance = (0,0)
-		if self.main and abs(amount) == 1:
-			# Find the distance between where the back part is and where it should be after rotating
-			distance = (math.cos(self.rotate / 180 * math.pi) * 39.0, math.sin((self.rotate / 180 * math.pi)) * 39.0)
-			distanceTwo = (math.cos((self.rotate + amount) / 180 * math.pi) * 39.0, math.sin(((self.rotate + amount) / 180 * math.pi)) * 39.0)
-			distance = (distance[0] - distanceTwo[0], distance[1] - distanceTwo[1])
 			#print(self.constraint[0], self.constraint[1], self.rotate)
 
-		l, u, r = self.constraint[0], self.constraint[1], self.rotate
-		r = (r + amount) % 360.0
+		r = (self.rotate + amount) % 360.0
+		if self.constraint > -1:
+			distanceFrom = (self.constraint - r) % 360
+			num = 90
+			if self.number < 3:
+				num = 30
+			if distanceFrom > 90 and distanceFrom < 180:
+				r = (self.constraint - num) % 360
+			elif distanceFrom > 180 and distanceFrom < 270:
+				r = (self.constraint + num) % 360
 
-		# Handles angles so that the angles loop between 360 and 0
-		one, two, three, four = abs(l - r), abs(u - r), abs(abs(l - r) - 360), abs(abs(u - r) - 360)
-		if one > three:
-			one = three
-		if two > four:
-			two = four
 
-		# If the angle is now outside of the bounds lock it to the constraints
 
-		if l > u and (r < l and r > u):
-			if one > two:
-				r = u
-			else:
-				r = l
-			distance = (0.0, 0.0)
-		elif l < u and (r < l or r > u):
-			if one > two:
-				r = u
-			else:
-				r = l
-			distance = (0.0, 0.0)
+
+
+
+
+		amount = (r - self.rotate) % 360
+		if amount > 180:
+			amount -= 360
+
+		if self.main and abs(amount) > 0:
+			# Find the distance between where the back part is and where it should be after rotating
+			distance = (math.cos(self.rotate / 180 * math.pi) * 39.0, math.sin(self.rotate / 180 * math.pi) * 39.0)
+			distanceTwo = (math.cos((self.rotate + amount) / 180 * math.pi) * 39.0, math.sin((self.rotate + amount) / 180 * math.pi) * 39.0)
+			distance = (distance[0] - distanceTwo[0], distanceTwo[1] - distance[1])
+
+
+
+		if False:#self.main and abs(amount) > 0:
+			print("initial amount", amount)
+			print("constraint:", self.constraint)
+			print("Current rotation", self.rotate)
+			print("r", r)
+			print("distance", distance)
+			print("----------------")
 
 		# Rotate the and get the image mask
 		self.rotate = r;
@@ -117,14 +125,19 @@ class Part:
 
 	# Check if a part is near to one of its constraints
 	def checkRotation(self, direction):
-		constraintOne, constraintTwo, rotation = self.constraint[0], self.constraint[1], self.rotate
-		if abs(constraintOne - constraintTwo) == 360:
+		if self.constraint == -1:
 			return True
-		if rotation == constraintOne and direction == -1:
-			return False
-		if rotation == constraintTwo and direction == 1:
-			return False
-
+		#print("NUMBER:", self.number)
+		distanceFrom = (self.constraint - self.rotate) % 360
+		if self.number > 2:
+			if (distanceFrom >= 90 and distanceFrom <= 180 and direction == -1) or (distanceFrom >= 180 and distanceFrom <= 270 and direction == 1):
+				#print("FAILED:", self.constraint, self.rotate, direction)
+				return False
+		else:
+			if (distanceFrom >= 30 and distanceFrom <= 180 and direction == -1) or (distanceFrom >= 180 and distanceFrom <= 330 and direction == 1):
+				#print("FAILED:", self.constraint, self.rotate, direction)
+				return False
+		#print("PASSED:", self.constraint, self.rotate, direction)
 		return True
 
 	# Set the parts rotation to a specific value. Used in the parts initialisation

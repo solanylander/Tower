@@ -21,13 +21,12 @@ class Network:
 
         h = tf.layers.dense(
             self.observations,
-            units=hidden_layer_size,
+            units=700,
             activation=tf.nn.relu,
             kernel_initializer=tf.contrib.layers.xavier_initializer())
-
         g = tf.layers.dense(
             h,
-            units=hidden_layer_size,
+            units=300,
             activation=tf.nn.relu,
             kernel_initializer=tf.contrib.layers.xavier_initializer())
 
@@ -59,19 +58,19 @@ class Network:
 
         self.saver = tf.train.Saver()
         self.checkpoint_file_new = os.path.join(checkpoints_dir,
-                                            'policy_network.ckpt')
+                                            'policy_network_new.ckpt')
         self.checkpoint_file_updated = os.path.join(checkpoints_dir,
-                                            'policy_network_update.ckpt')
-        self.checkpoint_file_51 = os.path.join(checkpoints_dir,
+                                            'policy_network_newest.ckpt')
+        self.checkpoint_file_81 = os.path.join(checkpoints_dir,
                                             'policy_network_81.ckpt')
     #Good
     def load_checkpoint(self):
         print("Loading checkpoint...")
-        self.saver.restore(self.sess, self.checkpoint_file_51)
+        self.saver.restore(self.sess, self.checkpoint_file_updated)
     #Good
     def save_checkpoint(self):
         print("Saving checkpoint...")
-        self.saver.save(self.sess, self.checkpoint_file_51)
+        self.saver.save(self.sess, self.checkpoint_file_updated)
     #Good
     def forward_pass(self, observations):
         observations = np.array(observations)

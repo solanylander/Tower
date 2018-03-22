@@ -9,9 +9,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--hidden_layer_size', type=int, default=200)
 parser.add_argument('--learning_rate', type=float, default=0.0005)
 parser.add_argument('--batch_size_episodes', type=int, default=1)
-parser.add_argument('--checkpoint_every_n_episodes', type=int, default=2)
+parser.add_argument('--checkpoint_every_n_episodes', type=int, default=4)
 parser.add_argument('--load_checkpoint', action='store_true')
-parser.add_argument('--discount_factor', type=int, default=0.9999)
+parser.add_argument('--discount_factor', type=int, default=0.9995)
 args = parser.parse_args()
 
 
@@ -32,7 +32,7 @@ DS = pygame.display.set_mode((W, H))
 pygame.display.set_caption("Ant Tower Project")
 FPS = 120
 trainingNum = 20000
-duration = 600
+duration = 900
 switch = 0
 
 # Get the image resources for the world
@@ -81,11 +81,15 @@ while True:
 			elif event.key == K_s:
 				counter = counter - 1
 				timer = -1
-			elif event.key == K_b:
+			elif event.key == K_v:
 				show = 2
-			elif event.key == K_n:
+			elif event.key == K_b:
 				show = 1
+			elif event.key == K_n:
+				pause = False
+				show = 0
 			elif event.key == K_m:
+				pause = True
 				show = 0
 				print("stop")
 	if not pause:
@@ -95,7 +99,7 @@ while True:
 			timer = duration
 			counter = counter + 1
 			for k in range(len(agents)):
-				if counter % 30 == 0 and not reset:
+				if counter % 20 == 0 and not reset:#and agents[0].won > 0:
 					agents[0].finishEpisode()
 				score = agents[k].getCog()[0]
 				agents[k].reset(counter < trainingNum, score, False, True)
@@ -109,7 +113,7 @@ while True:
 
 		if timer < 0:
 			timer = duration
-			agents[0].randomAgent.nextGame()
+			agents[0].randomize(int(epTimer/900))
 			#if timer == 333 or timer == 666:
 			#	agents[0].randomAgent.nextGame()
 
@@ -128,6 +132,8 @@ while True:
 		# Control specific agents
 		for j in range(len(agents)):
 			if agents[j].move(epTimer, show):
+				if agents[j].button and counter % 20 > 1:
+					counter = counter - 1
 				nextRound = True
 		if  (counter >= trainingNum) or switch:
 			# Draw world
@@ -136,13 +142,13 @@ while True:
 				DS.blit(blocks[i].getImage(), blocks[i].getPosition())
 			# Draw agents
 			for i in range(len(agents)):
+				markers = agents[i].getMarkers()
+				for j in range(len(markers)):
+					DS.blit(pointers[0], (int(markers[j][0]), int(markers[j][1])))
 				agents[i].run(DS)
 				# Pointer for agents center of gravity
 				cog = agents[i].getCog()
 				DS.blit(pointers[1], (int(cog[0]), int(cog[1])))
-				markers = agents[i].getMarkers()
 				# Pointer for collision points
-				for j in range(len(markers)):
-					DS.blit(pointers[0], (int(markers[j][0]), int(markers[j][1])))
 			pygame.display.update()
 			CLOCK.tick(FPS)
