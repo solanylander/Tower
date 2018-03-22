@@ -19,23 +19,26 @@ class random_network:
 		self.max = 0
 
 
+	def initialPopulation(self, observation, store):
+		observation = np.array(observation)
+		while True:
+			action = random.randrange(0,30)
+			if action < 15:
+				if observation[(action * 3) + 159] == 0:
+					break
+			else:
+				if observation[((action - 15) * 3) + 158] == 0:
+					break
+		if not store:
+			self.gameMemory.append([observation, action])
+		return action
+
+
 	def nextGame(self):
-		#if score > 4:
-		#	self.acceptedScores.append(score)
-		#	for data in self.gameMemory:
-		#		output = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]
-		#		output[data[1]] = 1
-		#		self.trainingData.append([data[0], output])
-		#self.scores.append(score)
-		#self.gameMemory = []
-		#self.prevObs = []
-		#self.model.set_weights(self.network.W, np.random.rand(300, 30))
-		self.constant = np.random.rand(30, 1)
-		#print("randomize")
+		self.model.set_weights(self.network.W, np.random.rand(128, 3))
 		#print("here")
 
 	def initialiseNetwork(self):
-		#self.loadNetwork()
 		self.trainModel()
 		self.trainingData = []
 		self.scores = []
@@ -47,12 +50,12 @@ class random_network:
 		print("save")
 		trainingDataSave = np.array(self.trainingData)
 		scoresSave = np.array(self.acceptedScores)
-		np.save('trainingData17.npy', trainingDataSave)
-		np.save('scores17.npy', scoresSave)
+		np.save('trainingData15.npy', trainingDataSave)
+		np.save('scores15.npy', scoresSave)
 
 	def loadNetwork(self):
-		#self.trainingData1 = np.load('trainingData15.npy')
-		#self.trainingData2 = np.load('trainingData16.npy')
+		#self.trainingData1 = np.load('trainingDataEleve.npy')
+		#self.trainingData2 = np.load('trainingDataTwe.npy')
 		#self.trainingData3 = np.load('trainingData13.npy')
 		#self.trainingData4 = np.load('trainingData14.npy')
 		print("hi")
@@ -67,10 +70,23 @@ class random_network:
 		network = fully_connected(network, 128, activation='relu')
 		network = dropout(network, 0.8)
 
-		network = fully_connected(network, 300, activation='relu')
+
+		network = fully_connected(network, 256, activation='relu')
 		network = dropout(network, 0.8)
 
-		network = fully_connected(network, 30, activation='softmax')
+
+		network = fully_connected(network, 512, activation='relu')
+		network = dropout(network, 0.8)
+
+
+		network = fully_connected(network, 256, activation='relu')
+		network = dropout(network, 0.8)
+
+
+		network = fully_connected(network, 128, activation='relu')
+		network = dropout(network, 0.8)
+
+		network = fully_connected(network, 3, activation='softmax')
 		self.network = regression(network, optimizer='adam', learning_rate=LR, loss='categorical_crossentropy', name='targets')
 
 		model = tflearn.DNN(self.network, tensorboard_dir='log')
@@ -78,7 +94,6 @@ class random_network:
 
 	def trainModel(self):
 		#print("train", len(self.trainingData))
-
 		trainingData = []
 		#for j in range(len(self.trainingData1)):
 		#	trainingData.append(self.trainingData1[j])
@@ -91,7 +106,7 @@ class random_network:
 		#X = np.array([i[0] for i in trainingData]).reshape(-1, len(trainingData[0][0]), 1)
 		#y = [i[1] for i in trainingData]
 
-		self.model = self.neuralNetworkModel(input_size = 81)
+		self.model = self.neuralNetworkModel(input_size = 9)
 
 		#self.model.fit({'input':X}, {'targets':y}, n_epoch=5, snapshot_step=500, show_metric=True, run_id='openaistuff')
 
@@ -102,7 +117,7 @@ class random_network:
 		self.scores.append(score)
 		self.gameMemory = []
 
-	def move(self, observation, store, list):
+	def move(self, observation):
 		# rand = random.randrange(4,100)
 		# rand = int((100 / rand))
 		# rand = random.randrange(1,4)
@@ -111,12 +126,6 @@ class random_network:
 		self.observation = np.reshape(observation, (-1, len(observation), 1))
 		self.prediction = self.model.predict(self.observation)[0]
 		return self.prediction
-
-	def constantRandom(self):
-		return self.constant
-
-	def trulyRandom(self):
-		return np.random.rand(30, 1)
 
 	def store(self, observation, action):
 			self.gameMemory.append([observation, action])

@@ -32,8 +32,8 @@ DS = pygame.display.set_mode((W, H))
 pygame.display.set_caption("Ant Tower Project")
 FPS = 120
 trainingNum = 20000
-duration = 900
-switch = 0
+duration = 400
+switch = True
 
 # Get the image resources for the world
 pointers = [None, None, None]
@@ -46,7 +46,6 @@ agentNumber = 1
 # Adds agents into the world
 for p in range(0,agentNumber):
 	agents.append(Agent((300,200 + 175 * p), args))
-	agents[p].randomAgent.initialiseNetwork()
 	blocks.append(Block(0, 0, 400 + p * 175))
 	# agents.append(Agent((50,-25 + 175 * p)))
 	# blocks.append(Block(0, 0, 55 + p * 175))
@@ -102,7 +101,7 @@ while True:
 				if counter % 20 == 0 and not reset:#and agents[0].won > 0:
 					agents[0].finishEpisode()
 				score = agents[k].getCog()[0]
-				agents[k].reset(counter < trainingNum, score, False, True)
+				agents[k].reset(counter < trainingNum, score)
 				agents[k].randomAgent.nextGame()
 			prev = counter
 			print("----")
@@ -113,25 +112,14 @@ while True:
 
 		if timer < 0:
 			timer = duration
-			agents[0].randomize(int(epTimer/900))
+			agents[0].randomize(int(epTimer/400))
 			#if timer == 333 or timer == 666:
 			#	agents[0].randomAgent.nextGame()
 
 
-		if timer == duration - 2:
-			if agents[0].collide(False):
-				timer = -1
-				counter = counter - 1
-				print("Reset")
-				reset = True
-				resetCounter += 1
-				nextRound = True
-			else:
-				resetCounter = 0
-
 		# Control specific agents
 		for j in range(len(agents)):
-			if agents[j].move(epTimer, show):
+			if agents[j].move(show):
 				if agents[j].button and counter % 20 > 1:
 					counter = counter - 1
 				nextRound = True

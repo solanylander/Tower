@@ -2,7 +2,7 @@ import os.path
 import numpy as np
 import tensorflow as tf
 
-OBSERVATIONS_SIZE = 81
+OBSERVATIONS_SIZE = 9
 
 
 class Network:
@@ -15,7 +15,7 @@ class Network:
         self.observations = tf.placeholder(tf.float32,
                                            [None, OBSERVATIONS_SIZE])
         # +1 for up, -1 for down
-        self.sampled_actions = tf.placeholder(tf.float32, [None, 30])
+        self.sampled_actions = tf.placeholder(tf.float32, [None, 3])
         self.advantage = tf.placeholder(
             tf.float32, [None, 1], name='advantage')
 
@@ -32,7 +32,7 @@ class Network:
 
         self.up_probability = tf.layers.dense(
             g,
-            units=30,
+            units=3,
             activation=tf.sigmoid,
             kernel_initializer=tf.contrib.layers.xavier_initializer())
 
