@@ -9,7 +9,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--hidden_layer_size', type=int, default=200)
 parser.add_argument('--learning_rate', type=float, default=0.0005)
 parser.add_argument('--batch_size_episodes', type=int, default=1)
-parser.add_argument('--checkpoint_every_n_episodes', type=int, default=4)
+parser.add_argument('--checkpoint_every_n_episodes', type=int, default=2)
 parser.add_argument('--load_checkpoint', action='store_true')
 parser.add_argument('--discount_factor', type=int, default=0.9995)
 args = parser.parse_args()
@@ -21,10 +21,10 @@ HW, HH = W / 2, H / 2
 AREA = W * H
 
 # define some colors
-BLUE = (0, 255, 200, 255)
+BLUE = (0, 153, 255, 221)
 
 # Place window in the center of the screen
-os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (700,80)
+os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (150,80)
 # initialise display
 pygame.init()
 CLOCK = pygame.time.Clock()

@@ -40,6 +40,9 @@ class Block:
 	def getRotation(self):
 		return self.rotate
 
+	def moveBlock(self, x, y):
+		self.position = (self.position[0] + x, self.position[1] + y)
+
 	# Get the objects image rotated
 	def getImage(self):
 		return self.image

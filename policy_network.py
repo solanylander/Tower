@@ -2,7 +2,7 @@ import os.path
 import numpy as np
 import tensorflow as tf
 
-OBSERVATIONS_SIZE = 9
+OBSERVATIONS_SIZE = 14
 
 
 class Network:
@@ -60,7 +60,7 @@ class Network:
         self.checkpoint_file_new = os.path.join(checkpoints_dir,
                                             'policy_network_new.ckpt')
         self.checkpoint_file_updated = os.path.join(checkpoints_dir,
-                                            'policy_network_newest.ckpt')
+                                            'policy_network_14.ckpt')
         self.checkpoint_file_81 = os.path.join(checkpoints_dir,
                                             'policy_network_81.ckpt')
     #Good

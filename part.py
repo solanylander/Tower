@@ -69,17 +69,15 @@ class Part:
 		return self.weight
 
 	# Rotate the body part by the value of amount with consideration to the body parts constraints
-	def rotation(self, amount):
+	def rotation(self, amount, ignore):
 		# When the back part is rotated it needs a pivot so the connecting point to the front torso is used
 		distance = (0,0)
 			#print(self.constraint[0], self.constraint[1], self.rotate)
 
 		r = (self.rotate + amount) % 360.0
-		if self.constraint > -1:
+		if self.constraint > -1 and not ignore:
 			distanceFrom = (self.constraint - r) % 360
 			num = 90
-			if self.number < 3:
-				num = 30
 			if distanceFrom > 90 and distanceFrom < 180:
 				r = (self.constraint - num) % 360
 			elif distanceFrom > 180 and distanceFrom < 270:
@@ -117,10 +115,6 @@ class Part:
 		self.mask = pygame.mask.from_surface(self.image)
 		self.sensors = []
 		self.sensorsMask = []
-		# Rotate sensors
-		for i in range(len(self.sensorLoad)):
-			self.sensors.append(self.rotImage(self.sensorLoad[i], self.rotate))
-			self.sensorsMask.append(pygame.mask.from_surface(self.sensors[i]))
 		return distance
 
 	# Check if a part is near to one of its constraints
@@ -129,20 +123,18 @@ class Part:
 			return True
 		#print("NUMBER:", self.number)
 		distanceFrom = (self.constraint - self.rotate) % 360
-		if self.number > 2:
-			if (distanceFrom >= 90 and distanceFrom <= 180 and direction == -1) or (distanceFrom >= 180 and distanceFrom <= 270 and direction == 1):
-				#print("FAILED:", self.constraint, self.rotate, direction)
-				return False
-		else:
-			if (distanceFrom >= 30 and distanceFrom <= 180 and direction == -1) or (distanceFrom >= 180 and distanceFrom <= 330 and direction == 1):
-				#print("FAILED:", self.constraint, self.rotate, direction)
-				return False
+		if (distanceFrom >= 90 and distanceFrom <= 180 and direction == -1) or (distanceFrom >= 180 and distanceFrom <= 270 and direction == 1):
+			#print("FAILED:", self.constraint, self.rotate, direction)
+			return False
 		#print("PASSED:", self.constraint, self.rotate, direction)
 		return True
 
 	# Set the parts rotation to a specific value. Used in the parts initialisation
-	def setRotation(self, rotation):
+	def setRotation(self, rotation, update):
 		self.rotate = rotation
+		if update:
+			self.image = self.rotImage(self.imageLoad, self.rotate)
+			self.mask = pygame.mask.from_surface(self.image)
 
 	# Get the parts rotation
 	def getRotation(self):

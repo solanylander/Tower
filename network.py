@@ -106,7 +106,7 @@ class random_network:
 		#X = np.array([i[0] for i in trainingData]).reshape(-1, len(trainingData[0][0]), 1)
 		#y = [i[1] for i in trainingData]
 
-		self.model = self.neuralNetworkModel(input_size = 9)
+		self.model = self.neuralNetworkModel(input_size = 14)
 
 		#self.model.fit({'input':X}, {'targets':y}, n_epoch=5, snapshot_step=500, show_metric=True, run_id='openaistuff')
 
