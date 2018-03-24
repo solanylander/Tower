@@ -11,7 +11,7 @@ parser.add_argument('--learning_rate', type=float, default=0.0005)
 parser.add_argument('--batch_size_episodes', type=int, default=1)
 parser.add_argument('--checkpoint_every_n_episodes', type=int, default=2)
 parser.add_argument('--load_checkpoint', action='store_true')
-parser.add_argument('--discount_factor', type=int, default=0.9995)
+parser.add_argument('--discount_factor', type=int, default=0.9998)
 args = parser.parse_args()
 
 

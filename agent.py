@@ -10,7 +10,7 @@ import numpy as np
 
 MAX_BODY_ROTATION = 90
 RANDOM_ELEMENT = False
-TRAINER_COUNTER = 10
+TRAINER_COUNTER = 5
 
 class Agent:
 
@@ -34,8 +34,6 @@ class Agent:
 		self.randomAgent = random_network()
 		self.randomAgent.initialiseNetwork()
 		self.networkInput = []
-		for i in range(81):
-			self.networkInput.append(0)
 		# Center of gravity
 		self.cog = (0,0)
 		self.rotations = [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0]
@@ -52,6 +50,7 @@ class Agent:
 		self.won = 0
 		self.lost = 0
 		self.boundary = 40
+		self.wait_lock = randint(0,1)
 		# Valid run
 		self.button = True
 		self.max = 0
@@ -71,6 +70,7 @@ class Agent:
 
 	# Reset agent
 	def reset(self, stage, score):
+		self.wait_lock = randint(0,1)
 		self.interactive_dist = 0
 		for i in range(7):
 			if randint(0,100) > 60:
@@ -88,15 +88,14 @@ class Agent:
 		parts.append(Part(rand, 0, 0, False, 50, 1))
 		rand += self.additional_random[1]
 		parts.append(Part(rand, 0, 0, False, 50, 2))
-
 		for i in range(0, 2):
-			rands = [randint(-60, 60),randint(0, 360)]
+			rands = [randint(0, 360),randint(-90, 90)]
 			parts.append(Part(rands[0], 0, 0, False, 12, 3 + i * 6))
 			parts.append(Part(rands[0], 0, 0, False, 12, 4 + i * 6))
 			parts.append(Part(rands[0], 0, 0, False, 12, 5 + i * 6))
-			parts.append(Part(rands[1], 0, 0, False, 12, 6 + i * 6))
-			parts.append(Part(rands[1], 0, 0, False, 12, 7 + i * 6))
-			parts.append(Part(rands[1], 0, 0, False, 12, 8 + i * 6))
+			parts.append(Part(rands[0] + rands[1], 0, 0, False, 12, 6 + i * 6))
+			parts.append(Part(rands[0] + rands[1], 0, 0, False, 12, 7 + i * 6))
+			parts.append(Part(rands[0] + rands[1], 0, 0, False, 12, 8 + i * 6))
 
 
 		parts[0].loadImage("image_resources/body.png")
@@ -138,6 +137,13 @@ class Agent:
 		self.centerOfGravity(pivot)
 		interactive_cog = self.getCog()[0]
 		pivot, run_finished = self.leg_move(pivot)
+		rotation = ((parts[3].getRotation() -  parts[9].getRotation()) % 360 - 179)
+
+
+
+
+		if rotation < 2 and rotation > 0:
+			self.wait_lock = 2
 
 
 		self.centerOfGravity(pivot)
@@ -179,14 +185,14 @@ class Agent:
 			probabilities_bottom = None
 
 			self.inputs(pivot, i * 2)
-			if self.random[i * 2] and RANDOM_ELEMENT:
+			if (self.random[i * 2] and RANDOM_ELEMENT) or self.round_n % 20 > 17:
 				probabilities_top = self.randomAgent.move(self.networkInput)
 			else:
 				probabilities_top = self.network.forward_pass(self.networkInput)[0]
 
 
 			self.inputs(pivot, (i * 2) + 1)
-			if self.random[(i * 2) + 1] and RANDOM_ELEMENT:
+			if (self.random[(i * 2) + 1] and RANDOM_ELEMENT) or self.round_n % 20 > 17:
 				probabilities_bottom = self.randomAgent.move(self.networkInput)
 			else:
 				probabilities_bottom = self.network.forward_pass(self.networkInput)[0]
@@ -194,7 +200,7 @@ class Agent:
 
 			move_top = np.argmax(probabilities_top)
 			if self.won < TRAINER_COUNTER:
-				if self.additional_random[0] == 0 and self.additional_random[1] == 0:
+				if self.additional_random[0] == 0 and self.additional_random[1] == 0 and not i == self.wait_lock:
 					move_top = 0
 				else:
 					move_top = 1
@@ -272,7 +278,7 @@ class Agent:
 
 			probabilities = None
 			self.inputs(pivot, i)
-			if self.random[i] and RANDOM_ELEMENT:
+			if (self.random[i] and RANDOM_ELEMENT) or self.round_n % 20 > 17:
 				probabilities = self.randomAgent.move(self.networkInput)
 			else:
 				probabilities = self.network.forward_pass(self.networkInput)[0]
@@ -350,11 +356,18 @@ class Agent:
 		if not button and (move < 30 or fail):
 			score = self.getCog()[0] - self.c[0]
 			reward = 0
-			if partNum == 14 and self.interactive_dist > 40:
-				reward = 0.999
-				self.won += 1
+			if partNum == 14 and self.interactive_dist > self.boundary:
+				rotation_constraint_one = abs((self.parts[0].getRotation() + 15) % 180)
+				rotation_constraint_two = abs((self.parts[2].getRotation() + 15) % 180)
+				print("Constraints: ", rotation_constraint_one)
+				if rotation_constraint_one < 30 and rotation_constraint_two < 30:
+					reward = 0.999
+					self.won += 1
+				else:
+					reward = -0.999
+					self.lost += 1
 
-			elif partNum == 14 and (self.interactive_dist < -20 or self.limit == 4):
+			elif partNum == 14 and (self.interactive_dist < -20 or self.limit >= 5):
 				reward = -0.999
 				self.lost += 1				
 
@@ -382,13 +395,14 @@ class Agent:
 		return False
 
 	def finishEpisode(self):
-		#if self.won > 25:
+		#if self.won > 15:
 		#	self.boundary += 40
-		#if self.lost == 30 and self.boundary > 100:
+		#if self.won == 0 and self.boundary > 100:
 		#	self.boundary -= 20
 		print("Self Boundary", self.boundary)
 		print("Episode %d finished after %d rounds" % (self.episode_n, self.round_n))
 		print("Current max score:", self.max)
+		print("Won:", self.won, "Lost:", self.lost)
 		# exponentially smoothed version of reward
 		if self.smoothed_reward is None:
 			self.smoothed_reward = self.episode_reward_sum
@@ -779,4 +793,4 @@ class Agent:
 
 	def setRotations(self, rotations):
 		for i in range(len(rotations)):
-			self.parts[i].setRotation(rotations[i], False)
+			self.parts[i].setRotation(rotations[i], True)

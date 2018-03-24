@@ -32,7 +32,7 @@ class Block:
 	# Rotate the object by the value of amount
 	def rotation(self, amount):
 		# Rotate the and get the image mask
-		self.rotate = r;
+		self.rotate = (self.rotate + amount) % 360
 		self.image = self.rotImage(self.imageLoad, self.rotate)
 		self.mask = pygame.mask.from_surface(self.image)
 

@@ -11,7 +11,7 @@ parser.add_argument('--learning_rate', type=float, default=0.0005)
 parser.add_argument('--batch_size_episodes', type=int, default=1)
 parser.add_argument('--checkpoint_every_n_episodes', type=int, default=2)
 parser.add_argument('--load_checkpoint', action='store_true')
-parser.add_argument('--discount_factor', type=int, default=1)
+parser.add_argument('--discount_factor', type=int, default=0.9995)
 args = parser.parse_args()
 
 # define display surface			
@@ -40,10 +40,35 @@ blocks, agents = [],[]
 
 blocks.append(Block(0, 0, 560))
 blocks[0].loadImage("image_resources/flat_floor.png")
-blocks.append(Block(0, 585, 150))
+blocks.append(Block(0, 980, 350))
 blocks[1].loadImage("image_resources/wall.png")
 
-block_move_u, block_move_r = 0,0
+agents.append(Agent((816,448), args))
+agents[0].setRotations([90,0,-90,0,0,20,0,0,0,0,0,20,0,0,0])
+agents[0].setPositions(agents[0].parts[0].getPosition())
+agents.append(Agent((866,393), args))
+agents[1].setRotations([50,50,90,340,340,60,340,340,90,340,340,60,340,340,90])
+agents[1].setPositions(agents[1].parts[0].getPosition())
+agents.append(Agent((753,455), args))
+agents[2].setRotations([230,180,240,0,0,0,0,0,0,0,0,0,0,0,0])
+agents[2].setPositions(agents[2].parts[0].getPosition())
+agents.append(Agent((854,445), args))
+agents[3].setRotations([-90,180,90,0,0,0,90,0,0,0,0,0,90,0,0])
+agents[3].setPositions(agents[3].parts[0].getPosition())
+agents.append(Agent((713,460), args))
+agents[4].setRotations([50,10,10,300,60,350,0,0,355,300,60,350,0,0,355])
+agents[4].setPositions(agents[4].parts[0].getPosition())
+agents.append(Agent((543,487), args))
+agents[5].setRotations([0,50,0,310,50,50,0,0,0,310,50,50,0,0,0])
+agents[5].setPositions(agents[5].parts[0].getPosition())
+agents.append(Agent((933,278), args))
+agents[6].setRotations([0,0,0,310,50,50,0,0,0,310,50,50,0,0,0])
+agents[6].setPositions(agents[6].parts[0].getPosition())
+agents.append(Agent((773,394), args))
+agents[7].setRotations([20,20,40,310,70,10,0,0,0,310,70,10,0,0,0])
+agents[7].setPositions(agents[7].parts[0].getPosition())
+
+block_move = (0,0)
 wall_height = 350
 pointer_position = (blocks[1].getPosition()[0] - 5, blocks[1].getPosition()[1] - 5)
 mouse_position = (-10,-10)
@@ -61,13 +86,9 @@ while True:
 			sys.exit()
 		if event.type == KEYDOWN:
 			if event.key == K_UP:
-				block_move_u -= 1
+				block_move -= 1
 			elif event.key == K_DOWN:
-				block_move_u += 1
-			elif event.key == K_LEFT:
-				block_move_r += 1
-			elif event.key == K_RIGHT:
-				block_move_r -= 1
+				block_move += 1
 			elif event.key == K_RETURN and mouse_position[1] == 560:
 				distance = (blocks[1].getPosition()[0] - mouse_position[0], mouse_position[1] - blocks[1].getPosition()[1])
 				angle = math.atan(distance[1]/distance[0])
@@ -82,13 +103,13 @@ while True:
 
 		elif event.type == KEYUP:
 			if event.key == K_UP:
-				block_move_u += 1
+				block_move[0] += 1
 			elif event.key == K_DOWN:
-				block_move_u -= 1
+				block_move[0] -= 1
 			elif event.key == K_LEFT:
-				block_move_r -= 1
+				block_move[1] += 1
 			elif event.key == K_RIGHT:
-				block_move_r += 1
+				block_move[1] -= 1
 		elif event.type == pygame.MOUSEBUTTONDOWN and not lock:
 			track_mouse = True
 		elif event.type == pygame.MOUSEBUTTONUP and not lock:
@@ -100,12 +121,11 @@ while True:
 		if mouse_position[1] > 560:
 			mouse_position = (mouse_position[0], 560)
 
-	wall_height = blocks[1].getPosition()[1] + block_move_u
-	if wall_height > 0 and wall_height < 300:
-		blocks[1].moveBlock(0, block_move_u)
-	rotation = blocks[1].getRotation() + block_move_r
-	if rotation < 15 or rotation > 345:
-		blocks[1].rotation(block_move_r)
+	wall_height = blocks[1].getPosition()[1] + block_move[0]
+	if wall_height > 200 and wall_height < 500:
+		blocks[1].moveBlock(0, block_move[0])
+
+	blocks[1].rotation(block_move[1])
 
 	pointer_position = (blocks[1].getPosition()[0] - 5, blocks[1].getPosition()[1] - 5)
 

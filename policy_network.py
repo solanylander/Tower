@@ -70,7 +70,7 @@ class Network:
     #Good
     def save_checkpoint(self):
         print("Saving checkpoint...")
-        self.saver.save(self.sess, self.checkpoint_file_updated)
+        self.saver.save(self.sess, self.checkpoint_file_81)
     #Good
     def forward_pass(self, observations):
         observations = np.array(observations)
