@@ -107,7 +107,7 @@ while True:
 	if rotation < 15 or rotation > 345:
 		blocks[1].rotation(block_move_r)
 
-	pointer_position = (blocks[1].getPosition()[0] - 5, blocks[1].getPosition()[1] - 5)
+	pointer_position = (blocks[1].getPosition()[0] - 10, blocks[1].getPosition()[1] - 5)
 
 	# Draw world
 	DS.fill(BLUE)

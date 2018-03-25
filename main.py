@@ -3,6 +3,8 @@ from pygame.locals import *
 from agent import Agent
 from part import Part
 from block import Block
+from policy_network import Network
+from network import random_network
 
 
 parser = argparse.ArgumentParser()
@@ -23,6 +25,9 @@ AREA = W * H
 # define some colors
 BLUE = (0, 153, 255, 221)
 
+network = Network(args.hidden_layer_size, args.learning_rate, checkpoints_dir='checkpoints')
+random_agent = random_network()
+random_agent.initialiseNetwork()
 # Place window in the center of the screen
 os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (150,80)
 # initialise display
@@ -44,16 +49,35 @@ pointers[2] = pygame.image.load("image_resources/pointerThree.png").convert_alph
 blocks, agents = [],[]
 agentNumber = 1
 # Adds agents into the world
-for p in range(0,agentNumber):
-	agents.append(Agent((300,200 + 175 * p), args))
-	blocks.append(Block(0, 0, 400 + p * 175))
-	# agents.append(Agent((50,-25 + 175 * p)))
-	# blocks.append(Block(0, 0, 55 + p * 175))
-	blocks[p].loadImage("image_resources/flat_floor.png")
+blocks.append(Block(0, 000, 400))
+blocks[0].loadImage("image_resources/flat_floor.png")
+
+
+
+block_move_u, block_move_r = 0,0
+wall_height = 350
+lock = False
+angle = 0
+
+
+
+
+
+
+
+
+
+blocks.append(Block(0, 200, 150))
+blocks[1].loadImage("image_resources/wall.png")
+agents.append(Agent((390,200), args, blocks[1], network, random_agent))
+agents.append(Agent((170,200), args, agents[0].parts[0], network, random_agent))
+agents.append(Agent((0,200), args, blocks[1], network, random_agent))
 # Tell all agents about the objects within the world so they can detect collisions
 for i in range(len(agents)):
-	for j in range(len(blocks)):
-		agents[i].addObject((blocks[j].getMask(), blocks[j].getPosition()[0], blocks[j].getPosition()[1]))
+	for j in range(len(agents)):
+		if i is not j:
+			agents[i].addOtherAgent(agents[j])
+
 
 timer = duration
 epTimer = 0
@@ -91,38 +115,77 @@ while True:
 				pause = True
 				show = 0
 				print("stop")
+
+			if not lock:
+				if event.key == K_UP:
+					block_move_u -= 1
+				elif event.key == K_DOWN:
+					block_move_u += 1
+				elif event.key == K_LEFT:
+					block_move_r += 1
+				elif event.key == K_RIGHT:
+					block_move_r -= 1
+				elif event.key == K_RETURN:
+					lock = True
+					block_move_u = 0
+					block_move_r = 0
+					for i in range(len(agents)):
+						for j in range(len(blocks)):
+							agents[i].addObject((blocks[j].getMask(), blocks[j].getPosition()[0], blocks[j].getPosition()[1]))
+
+		elif event.type == KEYUP:
+			if not lock:
+				if event.key == K_UP:
+					block_move_u += 1
+				elif event.key == K_DOWN:
+					block_move_u -= 1
+				elif event.key == K_LEFT:
+					block_move_r -= 1
+				elif event.key == K_RIGHT:
+					block_move_r += 1
 	if not pause:
-		if nextRound:
-			epTimer = 0
-			nextRound = False
-			timer = duration
-			counter = counter + 1
-			for k in range(len(agents)):
-				if counter % 20 == 0 and not reset:#and agents[0].won > 0:
-					agents[0].finishEpisode()
-				score = agents[k].getCog()[0]
-				agents[k].reset(counter < trainingNum, score)
-				agents[k].randomAgent.nextGame()
-			prev = counter
-			print("----")
-			reset = False
-		else:
-			timer = timer - 1
-			epTimer += 1
 
-		if timer < 0:
-			timer = duration
-			agents[0].randomize(int(epTimer/400))
-			#if timer == 333 or timer == 666:
-			#	agents[0].randomAgent.nextGame()
+		wall_height = blocks[1].getPosition()[1] + block_move_u
+		if wall_height > 0 and wall_height < 300:
+			blocks[1].moveBlock(0, block_move_u)
+		rotation = blocks[1].getRotation() + block_move_r
+		if rotation < 15 or rotation > 345:
+			blocks[1].rotation(block_move_r)
+
+		if lock:
 
 
-		# Control specific agents
-		for j in range(len(agents)):
-			if agents[j].move(show):
-				if agents[j].button and counter % 20 > 1:
-					counter = counter - 1
-				nextRound = True
+			if nextRound:
+				epTimer = 0
+				nextRound = False
+				timer = duration
+				counter = counter + 1
+				for k in range(len(agents)):
+					if counter % 20 == 0 and not reset:#and agents[0].won > 0:
+						agents[0].finishEpisode()
+					score = agents[k].getCog()[0]
+					agents[k].reset(counter < trainingNum, score)
+					agents[k].randomAgent.nextGame()
+				prev = counter
+				print("----")
+				reset = False
+			else:
+				timer = timer - 1
+				epTimer += 1
+
+			if timer < 0:
+				timer = duration
+				agents[0].randomize(int(epTimer/400))
+				#if timer == 333 or timer == 666:
+				#	agents[0].randomAgent.nextGame()
+
+
+			# Control specific agents
+			for j in range(len(agents)):
+				if agents[j].move(show):
+					if agents[j].button and counter % 20 > 1:
+						counter = counter - 1
+					nextRound = True
 		if  (counter >= trainingNum) or switch:
 			# Draw world
 			DS.fill(BLUE)
@@ -133,7 +196,10 @@ while True:
 				markers = agents[i].getMarkers()
 				for j in range(len(markers)):
 					DS.blit(pointers[0], (int(markers[j][0]), int(markers[j][1])))
-				agents[i].run(DS)
+				if lock:
+					agents[i].run(DS)
+					DS.blit(agents[i].sensor.getImage(), agents[i].sensor.getPosition(True))
+					DS.blit(agents[i].sensor.getImage(), agents[i].sensor.getPosition(False))
 				# Pointer for agents center of gravity
 				cog = agents[i].getCog()
 				DS.blit(pointers[1], (int(cog[0]), int(cog[1])))
