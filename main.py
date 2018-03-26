@@ -69,9 +69,9 @@ angle = 0
 
 blocks.append(Block(0, 200, 150))
 blocks[1].loadImage("image_resources/wall.png")
-agents.append(Agent((390,200), args, blocks[1], network, random_agent))
-agents.append(Agent((170,200), args, agents[0].parts[0], network, random_agent))
-agents.append(Agent((0,200), args, blocks[1], network, random_agent))
+agents.append(Agent((390,200), args, blocks[1], network, random_agent, 0))
+agents.append(Agent((170,200), args, agents[0].parts.parts[0], network, random_agent, 1))
+#agents.append(Agent((170,200), args, blocks[1], network, random_agent, 2))
 # Tell all agents about the objects within the world so they can detect collisions
 for i in range(len(agents)):
 	for j in range(len(agents)):
@@ -87,6 +87,7 @@ reset = False
 pause = False
 resetCounter = 0
 nextRound = False
+agent_number = 1
 # main loop
 while True:
 	# Key Listeners for movement and quitting
@@ -104,6 +105,15 @@ while True:
 			elif event.key == K_s:
 				counter = counter - 1
 				timer = -1
+			elif event.key == K_z:
+				agent_number += 1
+				agents.append(Agent((170,200), args, blocks[1], network, random_agent, agent_number))
+				for j in range(len(agents)):
+					if agent_number is not j:
+						agents[agent_number].addOtherAgent(agents[j])
+				for j in range(len(blocks)):
+					agents[agent_number].addObject((blocks[j].getMask(), blocks[j].getPosition()[0], blocks[j].getPosition()[1]))
+
 			elif event.key == K_v:
 				show = 2
 			elif event.key == K_b:
@@ -181,9 +191,15 @@ while True:
 
 
 			# Control specific agents
-			for j in range(len(agents)):
-				if agents[j].move(show):
-					if agents[j].button and counter % 20 > 1:
+			if agent_number == 1:
+				for j in range(len(agents)):
+					if agents[j].move(show):
+						if agents[j].button and counter % 20 > 1:
+							counter = counter - 1
+						nextRound = True
+			else:
+				if agents[agent_number].move(show):
+					if agents[agent_number].button and counter % 20 > 1:
 						counter = counter - 1
 					nextRound = True
 		if  (counter >= trainingNum) or switch:
@@ -197,12 +213,12 @@ while True:
 				for j in range(len(markers)):
 					DS.blit(pointers[0], (int(markers[j][0]), int(markers[j][1])))
 				if lock:
-					agents[i].run(DS)
-					DS.blit(agents[i].sensor.getImage(), agents[i].sensor.getPosition(True))
-					DS.blit(agents[i].sensor.getImage(), agents[i].sensor.getPosition(False))
+					agents[i].parts.run(DS)
+					#DS.blit(agents[i].sensor.getImage(), agents[i].sensor.getPosition(True))
+					#DS.blit(agents[i].sensor.getImage(), agents[i].sensor.getPosition(False))
 				# Pointer for agents center of gravity
-				cog = agents[i].getCog()
-				DS.blit(pointers[1], (int(cog[0]), int(cog[1])))
+				cog = agents[i].cog
+				DS.blit(pointers[0], (int(cog[0]), int(cog[1])))
 				# Pointer for collision points
 			pygame.display.update()
 			CLOCK.tick(FPS)
