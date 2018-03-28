@@ -275,6 +275,8 @@ class Parts:
 				elif difference > 0.5:
 					move = 2
 			if (inputs[7] >= 0.6 or inputs[8] >= 0.6) and inputs[16] == 1:
+				difference = (inputs[2] - inputs[1]) % 1
+				if difference > 0.75 or difference < 0.5:
 					move = 0
 		return move
 
@@ -301,7 +303,7 @@ class Parts:
 					move = 0
 
 		elif inputs[10] == 1:
-			if (inputs[7] < 0.5 and inputs[8] < 0.5) or inputs[16] == 0:
+			if (inputs[7] < 0.5 and inputs[8] < 0.5) or inputs[16] == 0 and inputs[4] < 1:
 				move = 0
 		elif inputs[11] == 1:
 			if (inputs[7] > 0 or inputs[8] > 0) and inputs[16] == 0:
@@ -320,7 +322,7 @@ class Parts:
 				elif inputs[5] > 0.25:
 					move = 0
 		elif inputs[12] == 1:
-			if (inputs[7] < 0.5 and inputs[8] < 0.5) or inputs[16] == 0:
+			if (inputs[7] < 0.5 and inputs[8] < 0.5) or inputs[16] == 0 and inputs[4] < 1:
 				move = 0
 		return move
 

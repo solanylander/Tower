@@ -53,7 +53,7 @@ class Agent:
 		self.xy = xy
 		self.won = 0
 		self.lost = 0
-		self.boundary = 400
+		self.boundary = 40000
 		# Valid run
 		self.button = True
 		self.max = 0
@@ -69,6 +69,18 @@ class Agent:
 	def randomize(self, limit):
 		self.limit = limit
 		print("Random", self.random, limit)
+		if not (self.limit == 0):
+			score = self.cog[0] - self.score_tracker
+			print("Agent Num:", self.agent_num, "Score:", score)
+			self.score_tracker = self.cog[0]
+
+
+			if score < 1:
+				print("ended")
+				self.stop = True
+
+
+
 
 
 	# Reset agent
@@ -88,6 +100,9 @@ class Agent:
 		self.parts.load_pair(self.backup)
 		self.backup.load_pair(self.parts)
 		self.parts.setPositions(self.xy)
+		self.cog = self.parts.centerOfGravity(self.xy)
+		self.score_tracker = self.cog[0]
+
 		self.parts.setConstraints()
 
 		if self.button == False:
@@ -168,7 +183,7 @@ class Agent:
 	def otherAgents(self):
 		self.other_agents_info = []
 		for i in range(len(self.other_agents)):
-			for j in range(0,15):
+			for j in range(0,3):
 				part = self.other_agents[i].parts.parts[j]
 				self.other_agents_info.append((part.getMask(), part.getPosition()[0], part.getPosition()[1]))
 
@@ -349,7 +364,7 @@ class Agent:
 					reward = -0.999
 					self.lost += 1
 
-			elif partNum == 14 and (self.interactive_dist < -20 or self.limit >= 40):
+			elif partNum == 14 and (self.interactive_dist < -20 or self.limit >= 40000):
 				reward = -0.999
 				self.lost += 1				
 

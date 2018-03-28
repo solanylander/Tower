@@ -44,21 +44,22 @@ switch = True
 pointers = [None, None, None]
 pointers[0] = pygame.image.load("image_resources/pointer.png").convert_alpha()
 pointers[1] = pygame.image.load("image_resources/pointerTwo.png").convert_alpha()
-pointers[2] = pygame.image.load("image_resources/pointerThree.png").convert_alpha()
 
 blocks, agents = [],[]
-agentNumber = 1
 # Adds agents into the world
-blocks.append(Block(0, 000, 400))
+blocks.append(Block(0, 0, 400))
 blocks[0].loadImage("image_resources/flat_floor.png")
 
-
+goal = Block(0, 0, 400)
+goal.loadImage("image_resources/goal.png")
 
 block_move_u, block_move_r = 0,0
 wall_height = 350
 lock = False
 angle = 0
 
+# wall pos, next wall, decrement
+target_counters = [2,3,-1]
 
 
 
@@ -67,10 +68,11 @@ angle = 0
 
 
 
-blocks.append(Block(0, 200, 150))
+blocks.append(Block(0, 300, 150))
 blocks[1].loadImage("image_resources/wall.png")
 agents.append(Agent((390,200), args, blocks[1], network, random_agent, 0))
-agents.append(Agent((170,200), args, agents[0].parts.parts[0], network, random_agent, 1))
+print("Target: Wall")
+#agents.append(Agent((170,200), args, agents[0].parts.parts[0], network, random_agent, 1))
 #agents.append(Agent((170,200), args, blocks[1], network, random_agent, 2))
 # Tell all agents about the objects within the world so they can detect collisions
 for i in range(len(agents)):
@@ -87,7 +89,7 @@ reset = False
 pause = False
 resetCounter = 0
 nextRound = False
-agent_number = 1
+agent_number = 0
 # main loop
 while True:
 	# Key Listeners for movement and quitting
@@ -105,15 +107,6 @@ while True:
 			elif event.key == K_s:
 				counter = counter - 1
 				timer = -1
-			elif event.key == K_z:
-				agent_number += 1
-				agents.append(Agent((170,200), args, blocks[1], network, random_agent, agent_number))
-				for j in range(len(agents)):
-					if agent_number is not j:
-						agents[agent_number].addOtherAgent(agents[j])
-				for j in range(len(blocks)):
-					agents[agent_number].addObject((blocks[j].getMask(), blocks[j].getPosition()[0], blocks[j].getPosition()[1]))
-
 			elif event.key == K_v:
 				show = 2
 			elif event.key == K_b:
@@ -137,6 +130,11 @@ while True:
 					block_move_r -= 1
 				elif event.key == K_RETURN:
 					lock = True
+					wall_rotation = (-math.sin(blocks[1].getRotation() * math.pi / 180) * 312, -math.cos(blocks[1].getRotation() * math.pi / 180)* 312)
+					wall_position = blocks[1].getPosition()
+					goal_xy = (wall_rotation[0] + wall_position[0] + 488, wall_rotation[1] + wall_position[1] + 488)
+					goal.setPosition(goal_xy)
+
 					block_move_u = 0
 					block_move_r = 0
 					for i in range(len(agents)):
@@ -185,23 +183,39 @@ while True:
 
 			if timer < 0:
 				timer = duration
-				agents[0].randomize(int(epTimer/400))
+				agents[agent_number].randomize(int(epTimer/400))
 				#if timer == 333 or timer == 666:
 				#	agents[0].randomAgent.nextGame()
 
 
 			# Control specific agents
-			if agent_number == 1:
+			agents[agent_number].move(show)#:
+
+			#	if agents[agent_number].button and counter % 20 > 1:
+			#		counter = counter - 1
+				#nextRound = True
+
+			if agents[agent_number].stop:
+				agent_number += 1
+				if agent_number == target_counters[0]:
+					agents.append(Agent((170,200), args, blocks[1], network, random_agent, agent_number))
+					target_counters = [target_counters[0] + target_counters[1], target_counters[1] + 1, target_counters[2] - 1]
+					print("Target: Wall")
+				else:
+					agents.append(Agent((170,200), args, agents[agent_number + target_counters[2]].parts.parts[0], network, random_agent, agent_number))
+					print("Target:", agent_number + target_counters[2])
+
+
 				for j in range(len(agents)):
-					if agents[j].move(show):
-						if agents[j].button and counter % 20 > 1:
-							counter = counter - 1
-						nextRound = True
-			else:
-				if agents[agent_number].move(show):
-					if agents[agent_number].button and counter % 20 > 1:
-						counter = counter - 1
-					nextRound = True
+					if agent_number is not j:
+						agents[agent_number].addOtherAgent(agents[j])
+				for j in range(len(blocks)):
+					agents[agent_number].addObject((blocks[j].getMask(), blocks[j].getPosition()[0], blocks[j].getPosition()[1]))
+
+
+
+
+
 		if  (counter >= trainingNum) or switch:
 			# Draw world
 			DS.fill(BLUE)
@@ -213,6 +227,7 @@ while True:
 				for j in range(len(markers)):
 					DS.blit(pointers[0], (int(markers[j][0]), int(markers[j][1])))
 				if lock:
+					DS.blit(goal.getImage(), goal.getPosition())
 					agents[i].parts.run(DS)
 					#DS.blit(agents[i].sensor.getImage(), agents[i].sensor.getPosition(True))
 					#DS.blit(agents[i].sensor.getImage(), agents[i].sensor.getPosition(False))

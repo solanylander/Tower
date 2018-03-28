@@ -29,6 +29,10 @@ class Block:
 	def getPosition(self):
 		return self.position
 
+	# Get objects position
+	def setPosition(self, position):
+		self.position = position
+
 	# Rotate the object by the value of amount
 	def rotation(self, amount):
 		# Rotate the and get the image mask
