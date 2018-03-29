@@ -2,15 +2,16 @@ import os.path
 import numpy as np
 import tensorflow as tf
 
-OBSERVATIONS_SIZE = 14
+OBSERVATIONS_SIZE = 17
 
 
 class Network:
     #Good
     def __init__(self, hidden_layer_size, learning_rate, checkpoints_dir):
         self.learning_rate = learning_rate
-
+        self.save_counter = 0
         self.sess = tf.InteractiveSession()
+        self.batch_state_action_reward_tuples = []
 
         self.observations = tf.placeholder(tf.float32,
                                            [None, OBSERVATIONS_SIZE])
@@ -60,13 +61,13 @@ class Network:
         self.checkpoint_file_new = os.path.join(checkpoints_dir,
                                             'policy_network_new.ckpt')
         self.checkpoint_file_updated = os.path.join(checkpoints_dir,
-                                            'policy_network_14.ckpt')
+                                            'policy_network_17.ckpt')
         self.checkpoint_file_81 = os.path.join(checkpoints_dir,
                                             'policy_network_81.ckpt')
     #Good
     def load_checkpoint(self):
         print("Loading checkpoint...")
-        self.saver.restore(self.sess, self.checkpoint_file_updated)
+        self.saver.restore(self.sess, self.checkpoint_file_81)
     #Good
     def save_checkpoint(self):
         print("Saving checkpoint...")
@@ -80,8 +81,8 @@ class Network:
         return up_probability
     #Good
     def train(self, state_action_reward_tuples):
-        print("Training with %d (state, action, reward) tuples" %
-              len(state_action_reward_tuples))
+        #print("Training with %d (state, action, reward) tuples" %
+         #     len(state_action_reward_tuples))
 
         states, actions, rewards = zip(*state_action_reward_tuples)
         states = np.vstack(states)
@@ -99,7 +100,6 @@ class Network:
 
     def discount_rewards(self, rewards, discount_factor):
         discounted_rewards = np.zeros_like(rewards)
-        print(len(rewards))
         for t in range(len(rewards)):
             discounted_reward_sum = 0
             discount = 1
@@ -112,3 +112,37 @@ class Network:
                     break
             discounted_rewards[t] = discounted_reward_sum
         return discounted_rewards
+
+
+    def finishEpisode(self):
+        #print("Episode %d finished after %d rounds" % (self.episode_n, self.round_n))
+        #print("Current max score:", self.max)
+        #print("Won:", self.won, "Lost:", self.lost)
+        # exponentially smoothed version of reward
+        #if self.smoothed_reward is None:
+        #    self.smoothed_reward = self.episode_reward_sum
+        #else:
+        #    self.smoothed_reward = self.smoothed_reward * 0.99 + self.episode_reward_sum * 0.01
+        #print("Reward total was %.3f; discounted moving average of reward is %.3f" \
+        #    % (self.episode_reward_sum, self.smoothed_reward))
+
+        #if self.episode_n % self.args.batch_size_episodes == 0:
+        print("Start Training:", len(self.batch_state_action_reward_tuples))
+        states, actions, rewards = zip(*self.batch_state_action_reward_tuples)
+        rewards = self.discount_rewards(rewards, 1)
+        #rewards -= np.mean(rewards)
+        #rewards /= np.std(rewards)
+        self.batch_state_action_reward_tuples = list(zip(states, actions, rewards))
+        self.train(self.batch_state_action_reward_tuples)
+        self.batch_state_action_reward_tuples = []
+
+
+        self.save_counter += 1
+
+        if self.save_counter % 2 == 0:
+            self.save_checkpoint()
+
+        #self.won = 0
+        #self.lost = 0
+        #self.episode_n += 1
+        #self.episode_reward_sum = 0

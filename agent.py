@@ -14,21 +14,24 @@ TRAINER_COUNTER = 5
 
 class Agent:
 
-	def __init__(self, xy, args, wall, network, random_agent, agent_num):
+	def __init__(self, xy, args, wall, network, random_agent, agent_num, goal, training):
 		# Which body parts are currently colliding
+		self.goal = goal
+		self.training = training
+		print("Training:", training)
+		self.restart = False	
 		self.wall = wall
 		self.agent_num = agent_num
 		self.colliding = []
 		self.history = []
-		self.stop = False
+		self.stop = 0
 		# Objects within the world
 		self.objects = []
 		self.reward = 1
 		self.args = args
 		# Neural network
 		self.network = network
-		if args.load_checkpoint:
-			self.network.load_checkpoint()
+		#if args.load_checkpoint:
 		self.batch_state_action_reward_tuples = []
 		self.smoothed_reward = None
 		self.episode_n = 1
@@ -53,7 +56,6 @@ class Agent:
 		self.xy = xy
 		self.won = 0
 		self.lost = 0
-		self.boundary = 40000
 		# Valid run
 		self.button = True
 		self.max = 0
@@ -68,16 +70,15 @@ class Agent:
 
 	def randomize(self, limit):
 		self.limit = limit
-		print("Random", self.random, limit)
 		if not (self.limit == 0):
+			parts = self.array
 			score = self.cog[0] - self.score_tracker
-			print("Agent Num:", self.agent_num, "Score:", score)
+			print("Step:", self.limit, "Score:", score)
 			self.score_tracker = self.cog[0]
 
 
-			if score < 1:
-				print("ended")
-				self.stop = True
+			if score <= 0:
+				self.stop = 1
 
 
 
@@ -85,7 +86,7 @@ class Agent:
 
 	# Reset agent
 	def reset(self, stage, score):
-		self.interactive_dist = 0
+		print("Agent Num:", self.agent_num)
 		for i in range(7):
 			if randint(0,100) > 60:
 				self.random[i] = True
@@ -116,11 +117,13 @@ class Agent:
 
 
 	# Handles movement calculations
-	def move(self, show):
+	def move(self, show, finished):
 		self.show = show
 		parts = self.array
 		run_finished = False
-		if not self.stop:
+		if self.stop < 2:
+			if self.stop == 1:
+				self.stop += 1
 			self.box = [(-1,-1), (-1,-1), (-1,-1), (-1,-1)]
 			self.otherAgents()
 			self.target = False
@@ -144,14 +147,13 @@ class Agent:
 			self.moves = []
 			pivot = self.parts.parts[0].getPosition()
 			pivot = self.gravity(pivot, 30)
-			pivot = self.body_move(pivot)
+			pivot = self.body_move(pivot, finished)
 			self.cog = self.parts.centerOfGravity(pivot)
 			interactive_cog = self.cog[0]
-			pivot, run_finished = self.leg_move(pivot)
+			pivot, run_finished = self.leg_move(pivot, finished)
 
 			rotation = ((self.parts.parts[3].getRotation() -  self.parts.parts[9].getRotation()) % 360 - 179)
 			self.cog = self.parts.centerOfGravity(pivot)
-			self.interactive_dist += self.cog[0] - interactive_cog
 			self.backup.duplicate()
 			self.box = [(-1,-1), (-1,-1), (-1,-1), (-1,-1)]
 			pivot = (pivot[0], pivot[1] + 1.5)
@@ -169,7 +171,7 @@ class Agent:
 				pivot, extra = self.fallRotation(pivot, False)
 			elif self.box[0][0] <= self.cog[0] + 1 and self.box[1][0] >= self.cog[0] - 1 and self.button:
 				self.c = self.cog
-				print("click")
+				print("Landed")
 				self.button = False
 
 			self.parts.setConstraints()
@@ -187,7 +189,7 @@ class Agent:
 				part = self.other_agents[i].parts.parts[j]
 				self.other_agents_info.append((part.getMask(), part.getPosition()[0], part.getPosition()[1]))
 
-	def leg_move(self, pivot):
+	def leg_move(self, pivot, finished):
 		parts = self.parts
 		prevMoves = []
 		move_top, move_bottom = None, None
@@ -198,7 +200,7 @@ class Agent:
 			cog = self.cog[0]
 
 			self.networkInput = self.parts.inputs(pivot, i * 2, self.sensor_values, self.target)
-			if False:
+			if not self.training:
 				probabilities_top = None
 				probabilities_bottom = None
 
@@ -273,18 +275,18 @@ class Agent:
 							else:
 								pivot = self.gravity(pivot, 10)
 
-				run_finished = self.ended(move_top, self.button, partNum)
-				run_finished = self.ended(move_bottom, self.button, partNum + 3)
+				run_finished = self.ended(move_top, self.button, partNum, finished)
+				run_finished = self.ended(move_bottom, self.button, partNum + 3, finished)
 		self.prevMoves = prevMoves
 		return pivot, run_finished
 
-	def body_move(self, pivot):
+	def body_move(self, pivot, finished):
 		parts = self.array
 		banned = None
 		for i in range(4,7):
 			move = None
 			self.networkInput = self.parts.inputs(pivot, i, self.sensor_values, self.target)
-			if False:
+			if not self.training:
 				probabilities = None
 				if (self.random[i] and RANDOM_ELEMENT) or self.round_n % 20 > 17:
 					probabilities = self.randomAgent.move(self.networkInput)
@@ -344,44 +346,52 @@ class Agent:
 
 			if resetGravity is not 0:
 				pivot = self.gravity(pivot, resetGravity)
-			self.ended(move, self.button, partNum)
+			self.ended(move, self.button, partNum, finished)
 		return pivot
 
 
 
-	def ended(self, move, button, partNum):
+	def ended(self, move, button, partNum, finished):
 		if not button and (move < 30 or fail):
 			score = self.cog[0] - self.c[0]
 			reward = 0
-			if partNum == 14 and self.interactive_dist > self.boundary:
-				rotation_constraint_one = abs((self.parts.parts[0].getRotation() + 15) % 180)
-				rotation_constraint_two = abs((self.parts.parts[2].getRotation() + 15) % 180)
-				print("Constraints: ", rotation_constraint_one)
-				if rotation_constraint_one < 30 and rotation_constraint_two < 30:
+
+
+			parts = self.array
+
+
+			if partNum == 14:
+
+				offset = (int(parts[2].getPosition()[0] - self.goal.getPosition()[0]), int(parts[2].getPosition()[1] - self.goal.getPosition()[1]))
+				result = self.goal.getMask().overlap(parts[2].getMask(), offset)
+				# If they collide return true
+				if result:
+					self.restart = True
+					finished = 2
+					print("reseting")
+
+
+
+				if finished == 2:
 					reward = 0.999
 					self.won += 1
-				else:
+				elif finished == 1:
+					self.restart = True
 					reward = -0.999
-					self.lost += 1
-
-			elif partNum == 14 and (self.interactive_dist < -20 or self.limit >= 40000):
-				reward = -0.999
-				self.lost += 1				
+					self.lost += 1		
 
 			output = [0,0,0]
 			output[move] = 1
 
 			self.episode_reward_sum += reward
 			tup = (self.networkInput, output, reward)
-			self.batch_state_action_reward_tuples.append(tup)
+			self.network.batch_state_action_reward_tuples.append(tup)
 			if partNum == 14:
 				if reward < 0:
 					print("Round %d; Score: %0.3f, Reward: %0.3f,  lost..." % (self.round_n, score, reward))
 				elif reward > 0:
 					print("Round %d: Score: %0.3f, Reward: %0.3f, won!" % (self.round_n, score, reward))
 				if reward != 0:
-					print("Boundary:", self.boundary)
-					print("Interactive:", self.interactive_dist)
 					print("============================")
 					if score > self.max:
 						self.max = score
@@ -391,12 +401,12 @@ class Agent:
 					return True
 		return False
 
+	def reduceScore(self):
+		position = len(self.batch_state_action_reward_tuples) - 1
+		tup = (self.batch_state_action_reward_tuples[position][0], self.batch_state_action_reward_tuples[position][1], self.batch_state_action_reward_tuples[position][2] * 0.9)
+		self.batch_state_action_reward_tuples.append(tup)
+
 	def finishEpisode(self):
-		#if self.won > 15:
-		#	self.boundary += 40
-		#if self.won == 0 and self.boundary > 100:
-		#	self.boundary -= 20
-		print("Self Boundary", self.boundary)
 		print("Episode %d finished after %d rounds" % (self.episode_n, self.round_n))
 		print("Current max score:", self.max)
 		print("Won:", self.won, "Lost:", self.lost)

@@ -39,11 +39,12 @@ class Parts:
 
 			for j in range(3, 15):
 				# Load the image files and set the constraints
-				parts[j].loadImage("image_resources/leg_green.png")
+				parts[j].loadImage("image_resources/leg.png")
 				parts[j].setWeight(0.66)
 			for j in range(9, 15):
 				# Load the image files and set the constraints
-				parts[j].loadImage("image_resources/leg_yellow.png")
+				#parts[j].loadImage("image_resources/leg_yellow.png")
+				parts[j].loadImage("image_resources/leg.png")
 		self.parts = parts
 
 		self.legcounter = 0
@@ -102,9 +103,9 @@ class Parts:
 	# Draw all the images
 	def run(self, DS):
 		parts = self.parts
-		for i in range(0,9):
-			DS.blit(parts[i].getImage(), parts[i].getPosition())
 		for i in range(9,15):
+			DS.blit(parts[i].getImage(), parts[i].getPosition())
+		for i in range(0,9):
 			DS.blit(parts[i].getImage(), parts[i].getPosition())
 
 
