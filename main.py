@@ -10,7 +10,7 @@ from random import *
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--hidden_layer_size', type=int, default=200)
-parser.add_argument('--learning_rate', type=float, default=0.0005)
+parser.add_argument('--learning_rate', type=float, default=0.005)
 parser.add_argument('--batch_size_episodes', type=int, default=1)
 parser.add_argument('--checkpoint_every_n_episodes', type=int, default=2)
 parser.add_argument('--load_checkpoint', action='store_true')
@@ -27,7 +27,7 @@ AREA = W * H
 BLUE = (0, 153, 255, 221)
 
 network = Network(args.hidden_layer_size, args.learning_rate, checkpoints_dir='checkpoints')
-network.load_checkpoint()
+#network.load_checkpoint()
 random_agent = random_network()
 random_agent.initialiseNetwork()
 # Place window in the center of the screen
@@ -41,7 +41,7 @@ FPS = 120
 trainingNum = 20000
 duration = 400
 switch = True
-training = True
+training = (randint(0,100) < 80)
 # Get the image resources for the world
 pointers = [None, None, None]
 pointers[0] = pygame.image.load("image_resources/pointer.png").convert_alpha()
@@ -244,8 +244,8 @@ while True:
 				if lock:
 					DS.blit(goal.getImage(), goal.getPosition())
 					agents[i].parts.run(DS)
-					#DS.blit(agents[i].sensor.getImage(), agents[i].sensor.getPosition(True))
-					#DS.blit(agents[i].sensor.getImage(), agents[i].sensor.getPosition(False))
+					DS.blit(agents[i].sensor.getImage(), agents[i].sensor.getPosition(True))
+					DS.blit(agents[i].sensor.getImage(), agents[i].sensor.getPosition(False))
 				# Pointer for agents center of gravity
 				cog = agents[i].cog
 				DS.blit(pointers[0], (int(cog[0]), int(cog[1])))
@@ -260,11 +260,11 @@ while True:
 		if agents[agent_number].restart:
 
 
-			if len(network.batch_state_action_reward_tuples) > 400000:
+			if len(network.batch_state_action_reward_tuples) > 200000:
 				network.finishEpisode()
 			else:
 				print("Episode Finished:", len(network.batch_state_action_reward_tuples))
-
+			print("=================")
 			cog_threshold = 800
 			diff_cog = 0
 
@@ -272,7 +272,7 @@ while True:
 
 			agent_number = 0
 			agents = []
-			training = True
+			training = (randint(0,100) < 80)
 			agents.append(Agent((390,200), args, blocks[1], network, random_agent, 0, goal, training))
 			target_counters = [2,3,-1]
 			#lock = False
@@ -332,6 +332,9 @@ while True:
 			print("Back rotation:", back_rotation)
 			front_rotation = (agents[agent_number].array[1].getRotation() + 10) % 360
 			print("Front rotation:", front_rotation)
+			rotation = (agents[agent_number].array[0].getRotation() - agents[agent_number].array[1].getRotation() - agents[agent_number].array[2].getRotation() + 2) % 360
+			#print(rotation)
+			#if rotation > 4 or diff_cog > 100:
 			if last_cog < boundary or diff_cog > 100 or back_rotation > 12 or front_rotation > 20: 
 				finished = 1
 			else:
@@ -343,7 +346,7 @@ while True:
 
 			agent_number += 1
 
-			training = (randint(0,100) < 50)
+			training = (randint(0,100) < 30)
 
 			if (wall_corner - last_cog) < 50:
 				agents.append(Agent((400 - (agent_number * 50),200), args, focus, network, random_agent, agent_number, goal, training))

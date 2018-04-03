@@ -76,8 +76,7 @@ class Agent:
 			print("Step:", self.limit, "Score:", score)
 			self.score_tracker = self.cog[0]
 
-
-			if score <= 0:
+			if score <= 0:# or self.networkInput[7] > 0 or self.networkInput[8] > 0:
 				self.stop = 1
 
 
@@ -102,6 +101,7 @@ class Agent:
 		self.backup.load_pair(self.parts)
 		self.parts.setPositions(self.xy)
 		self.cog = self.parts.centerOfGravity(self.xy)
+		self.c = self.cog
 		self.score_tracker = self.cog[0]
 
 		self.parts.setConstraints()
@@ -169,16 +169,13 @@ class Agent:
 			# If the agents center of gravity is to the right of all its points of contacts fall to the right
 			elif self.box[1][0] != -1 and self.box[1][0] < self.cog[0]:
 				pivot, extra = self.fallRotation(pivot, False)
-			elif self.box[0][0] <= self.cog[0] + 1 and self.box[1][0] >= self.cog[0] - 1 and self.button:
-				self.c = self.cog
-				print("Landed")
-				self.button = False
 
 			self.parts.setConstraints()
 			if extra != 0:
 				pivot = self.gravity(pivot, (extra) * 10)
 			if show == 2:		
 				print(self.moves)
+				print("========")
 			self.sensor.setPositions(self.parts.parts[0].getPivot(), self.parts.parts[2].getPivot())
 		return run_finished
 
@@ -199,28 +196,25 @@ class Agent:
 			oldCog = self.cog[0]
 			cog = self.cog[0]
 
-			self.networkInput = self.parts.inputs(pivot, i * 2, self.sensor_values, self.target)
+			self.networkInput_top = self.parts.inputs(pivot, i * 2, self.sensor_values, self.target)
+			self.networkInput = self.parts.inputs(pivot, (i * 2) + 1, self.sensor_values, self.target)
 			if not self.training:
-				probabilities_top = None
-				probabilities_bottom = None
-
-				if (self.random[i * 2] and RANDOM_ELEMENT) or self.round_n % 20 > 17:
-					probabilities_top = self.randomAgent.move(self.networkInput)
-				else:
-					probabilities_top = self.network.forward_pass(self.networkInput)[0]
-
-				self.networkInput = self.parts.inputs(pivot, (i * 2) + 1, self.sensor_values, self.target)
-				if (self.random[(i * 2) + 1] and RANDOM_ELEMENT) or self.round_n % 20 > 17:
-					probabilities_bottom = self.randomAgent.move(self.networkInput)
-				else:
-					probabilities_bottom = self.network.forward_pass(self.networkInput)[0]
+				probabilities_top = self.network.forward_pass(self.networkInput_top)[0]
+				probabilities_bottom = self.network.forward_pass(self.networkInput)[0]
 
 				move_top = np.argmax(probabilities_top)
 				move_bottom = np.argmax(probabilities_bottom)
 			else:
-				move_top = self.parts.training_move_leg(self.networkInput)
-				self.networkInput = self.parts.inputs(pivot, (i * 2) + 1, self.sensor_values, self.target)
+				move_top = self.parts.training_move_leg(self.networkInput_top)
 				move_bottom = self.parts.training_move_leg(self.networkInput)
+
+
+				
+			reward_top, reward_bot = -0.999, -0.999
+			if move_top == self.parts.training_move_leg(self.networkInput_top):
+				reward_top = 0.999
+			if move_bottom == self.parts.training_move_leg(self.networkInput):
+				reward_bot = 0.999
 
 			rotation_amount_top = move_top - 1
 			rotation_amount_bottom = move_bottom - 1 + rotation_amount_top
@@ -275,8 +269,8 @@ class Agent:
 							else:
 								pivot = self.gravity(pivot, 10)
 
-				run_finished = self.ended(move_top, self.button, partNum, finished)
-				run_finished = self.ended(move_bottom, self.button, partNum + 3, finished)
+			run_finished = self.ended(move_top, self.button, partNum, finished, reward_top)
+			run_finished = self.ended(move_bottom, self.button, partNum + 3, finished, reward_bot)
 		self.prevMoves = prevMoves
 		return pivot, run_finished
 
@@ -287,15 +281,17 @@ class Agent:
 			move = None
 			self.networkInput = self.parts.inputs(pivot, i, self.sensor_values, self.target)
 			if not self.training:
-				probabilities = None
-				if (self.random[i] and RANDOM_ELEMENT) or self.round_n % 20 > 17:
-					probabilities = self.randomAgent.move(self.networkInput)
-				else:
-					probabilities = self.network.forward_pass(self.networkInput)[0]
-
+				probabilities = self.network.forward_pass(self.networkInput)[0]
 				move = np.argmax(probabilities)
+				if banned == move and i == 5:
+					probabilities[move] = 0
+					move = np.argmax(probabilities)
 			else:
 				move = self.parts.training_move_body(self.networkInput)
+
+			reward = -0.999
+			if move == self.parts.training_move_body(self.networkInput):
+				reward = 0.999
 
 			self.moves.append(move)
 			rotation_amount = move - 1
@@ -346,19 +342,18 @@ class Agent:
 
 			if resetGravity is not 0:
 				pivot = self.gravity(pivot, resetGravity)
-			self.ended(move, self.button, partNum, finished)
+			self.ended(move, self.button, partNum, finished, reward)
 		return pivot
 
 
 
-	def ended(self, move, button, partNum, finished):
-		if not button and (move < 30 or fail):
+	def ended(self, move, button, partNum, finished, reward):
+		if (move < 30 or fail):
 			score = self.cog[0] - self.c[0]
-			reward = 0
 
 
 			parts = self.array
-
+			reward = 0
 
 			if partNum == 14:
 
@@ -373,18 +368,23 @@ class Agent:
 
 
 				if finished == 2:
-					reward = 0.999
+					reward = 1.00
 					self.won += 1
 				elif finished == 1:
 					self.restart = True
-					reward = -0.999
+					reward = -1.00
 					self.lost += 1		
 
 			output = [0,0,0]
 			output[move] = 1
 
 			self.episode_reward_sum += reward
-			tup = (self.networkInput, output, reward)
+
+			tup = None
+			if ((partNum - 3) % 6) < 3:
+				tup = (self.networkInput_top, output, reward)
+			else:
+				tup = (self.networkInput, output, reward)
 			self.network.batch_state_action_reward_tuples.append(tup)
 			if partNum == 14:
 				if reward < 0:
@@ -392,13 +392,16 @@ class Agent:
 				elif reward > 0:
 					print("Round %d: Score: %0.3f, Reward: %0.3f, won!" % (self.round_n, score, reward))
 				if reward != 0:
-					print("============================")
+					print("=================")
 					if score > self.max:
 						self.max = score
 					self.reward = reward
 					self.round_n += 1
 					self.n_steps = 0
 					return True
+
+			if self.show == 2:		
+				print("Part Num:", partNum, reward)
 		return False
 
 	def reduceScore(self):

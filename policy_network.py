@@ -22,17 +22,12 @@ class Network:
 
         h = tf.layers.dense(
             self.observations,
-            units=700,
-            activation=tf.nn.relu,
-            kernel_initializer=tf.contrib.layers.xavier_initializer())
-        g = tf.layers.dense(
-            h,
-            units=300,
+            units=10,
             activation=tf.nn.relu,
             kernel_initializer=tf.contrib.layers.xavier_initializer())
 
         self.up_probability = tf.layers.dense(
-            g,
+            h,
             units=3,
             activation=tf.sigmoid,
             kernel_initializer=tf.contrib.layers.xavier_initializer())
@@ -81,9 +76,6 @@ class Network:
         return up_probability
     #Good
     def train(self, state_action_reward_tuples):
-        #print("Training with %d (state, action, reward) tuples" %
-         #     len(state_action_reward_tuples))
-
         states, actions, rewards = zip(*state_action_reward_tuples)
         states = np.vstack(states)
         actions = np.vstack(actions)
@@ -115,23 +107,11 @@ class Network:
 
 
     def finishEpisode(self):
-        #print("Episode %d finished after %d rounds" % (self.episode_n, self.round_n))
-        #print("Current max score:", self.max)
-        #print("Won:", self.won, "Lost:", self.lost)
-        # exponentially smoothed version of reward
-        #if self.smoothed_reward is None:
-        #    self.smoothed_reward = self.episode_reward_sum
-        #else:
-        #    self.smoothed_reward = self.smoothed_reward * 0.99 + self.episode_reward_sum * 0.01
-        #print("Reward total was %.3f; discounted moving average of reward is %.3f" \
-        #    % (self.episode_reward_sum, self.smoothed_reward))
-
-        #if self.episode_n % self.args.batch_size_episodes == 0:
         print("Start Training:", len(self.batch_state_action_reward_tuples))
         states, actions, rewards = zip(*self.batch_state_action_reward_tuples)
-        rewards = self.discount_rewards(rewards, 1)
-        #rewards -= np.mean(rewards)
-        #rewards /= np.std(rewards)
+        rewards = self.discount_rewards(rewards, 0.99992)
+        rewards -= np.mean(rewards)
+        rewards /= np.std(rewards)
         self.batch_state_action_reward_tuples = list(zip(states, actions, rewards))
         self.train(self.batch_state_action_reward_tuples)
         self.batch_state_action_reward_tuples = []
@@ -141,8 +121,3 @@ class Network:
 
         if self.save_counter % 2 == 0:
             self.save_checkpoint()
-
-        #self.won = 0
-        #self.lost = 0
-        #self.episode_n += 1
-        #self.episode_reward_sum = 0
