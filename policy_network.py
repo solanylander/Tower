@@ -8,7 +8,7 @@ OBSERVATIONS_SIZE = 17
 class Network:
     #Good
     def __init__(self, hidden_layer_size, learning_rate, checkpoints_dir):
-        self.learning_rate = learning_rate
+        self.learning_rate = 0.005
         self.save_counter = 0
         self.sess = tf.InteractiveSession()
         self.batch_state_action_reward_tuples = []
@@ -20,14 +20,26 @@ class Network:
         self.advantage = tf.placeholder(
             tf.float32, [None, 1], name='advantage')
 
-        h = tf.layers.dense(
+        h_one = tf.layers.dense(
             self.observations,
-            units=10,
+            units=14,
+            activation=tf.nn.relu,
+            kernel_initializer=tf.contrib.layers.xavier_initializer())
+
+        h_two = tf.layers.dense(
+            h_one,
+            units=14,
+            activation=tf.nn.relu,
+            kernel_initializer=tf.contrib.layers.xavier_initializer())
+
+        h_three = tf.layers.dense(
+            h_two,
+            units=14,
             activation=tf.nn.relu,
             kernel_initializer=tf.contrib.layers.xavier_initializer())
 
         self.up_probability = tf.layers.dense(
-            h,
+            h_two,
             units=3,
             activation=tf.sigmoid,
             kernel_initializer=tf.contrib.layers.xavier_initializer())
@@ -56,7 +68,7 @@ class Network:
         self.checkpoint_file_new = os.path.join(checkpoints_dir,
                                             'policy_network_new.ckpt')
         self.checkpoint_file_updated = os.path.join(checkpoints_dir,
-                                            'policy_network_17.ckpt')
+                                            'policy_network_multi.ckpt')
         self.checkpoint_file_81 = os.path.join(checkpoints_dir,
                                             'policy_network_81.ckpt')
     #Good
@@ -85,8 +97,18 @@ class Network:
             self.observations: states,
             self.sampled_actions: actions,
             self.advantage: rewards
+
+
+
         }
         self.sess.run(self.train_op, feed_dict)
+
+    def update_learn_rate(self, success_rate):
+        self.z = [0,1,0,1,0,1,0,0,0,0,1,0,0,0,0,0,0]
+        print(self.z)
+        print(self.forward_pass(self.z))
+
+        print("------")
 
 
 
@@ -109,9 +131,13 @@ class Network:
     def finishEpisode(self):
         print("Start Training:", len(self.batch_state_action_reward_tuples))
         states, actions, rewards = zip(*self.batch_state_action_reward_tuples)
-        rewards = self.discount_rewards(rewards, 0.99992)
+        rewards = self.discount_rewards(rewards, 0.9995)
         rewards -= np.mean(rewards)
         rewards /= np.std(rewards)
+        i = 0
+        while i < len(rewards):
+            print("Reward Tracker", i, rewards[i])
+            i += 100
         self.batch_state_action_reward_tuples = list(zip(states, actions, rewards))
         self.train(self.batch_state_action_reward_tuples)
         self.batch_state_action_reward_tuples = []
