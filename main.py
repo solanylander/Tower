@@ -285,7 +285,7 @@ while True:
 				lost = 0
 			else:
 				print("Episode Finished:", len(network.batch_state_action_reward_tuples))
-		
+			print(agents[agent_number].episode_reward_sum)
 			print("=================")
 			cog_threshold = 800
 			diff_cog = 0
@@ -352,6 +352,7 @@ while True:
 
 		elif agents[agent_number].stop == 2:
 
+			print(agents[agent_number].episode_reward_sum)
 
 			last_cog = 400 - agents[agent_number].cog[1]
 

@@ -8,7 +8,7 @@ OBSERVATIONS_SIZE = 17
 class Network:
     #Good
     def __init__(self, hidden_layer_size, learning_rate, checkpoints_dir):
-        self.learning_rate = 0.005
+        self.learning_rate = 0.1
         self.save_counter = 0
         self.sess = tf.InteractiveSession()
         self.batch_state_action_reward_tuples = []
@@ -131,9 +131,7 @@ class Network:
     def finishEpisode(self):
         print("Start Training:", len(self.batch_state_action_reward_tuples))
         states, actions, rewards = zip(*self.batch_state_action_reward_tuples)
-        rewards = self.discount_rewards(rewards, 0.9995)
-        rewards -= np.mean(rewards)
-        rewards /= np.std(rewards)
+        rewards = self.discount_rewards(rewards, 0.9999)
         i = 0
         while i < len(rewards):
             print("Reward Tracker", i, rewards[i])

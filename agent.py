@@ -18,8 +18,10 @@ class Agent:
 	def __init__(self, xy, args, wall, network, agent_num, goal, success_rate, boundary):
 		# Which body parts are currently colliding
 		self.boundary = boundary
+		self.front = randint(0,100)
+		print("front", int(self.front/33))
 		self.flatten_reward = False
-		self.train = False#(randint(0,100) > 60)
+		self.train = False
 		self.goal = goal
 		self.last_step = -1
 		self.training_step = 1
@@ -276,8 +278,14 @@ class Agent:
 							else:
 								pivot = self.gravity(pivot, 10)
 
-			self.ended(move_top, self.button, partNum, finished)
-			self.ended(move_bottom, self.button, partNum + 3, finished)
+			reward_top, reward_bottom = -1.00, -1.00
+			if move_top == parts.training_move_leg(self.networkInput_top):
+				reward_top = 1.00
+			if move_bottom == parts.training_move_leg(self.networkInput):
+				reward_bottom = 1.00
+
+			self.ended(move_top, self.button, partNum, finished, reward_top)
+			self.ended(move_bottom, self.button, partNum + 3, finished, reward_bottom)
 		self.prevMoves = prevMoves
 		return pivot
 
@@ -348,12 +356,16 @@ class Agent:
 
 			if resetGravity is not 0:
 				pivot = self.gravity(pivot, resetGravity)
-			self.ended(move, self.button, partNum, finished)
+
+			reward = -1.00
+			if move == self.parts.training_move_body(self.networkInput):
+				reward = 1.00
+			self.ended(move, self.button, partNum, finished, reward)
 		return pivot
 
 
 
-	def ended(self, move, button, partNum, finished):
+	def ended(self, move, button, partNum, finished, rewards):
 		if (move < 30 or fail):
 			score = self.cog[0] - self.c[0]
 
@@ -373,29 +385,29 @@ class Agent:
 
 
 				reward = self.alternate_rewards()
-				#reward = self.alternate_rewards()
+				#reward = self.training_rewards(result)
 				#if self.run_finished:
-					#if reward > 0:
-					#	self.stop = 2
-					#elif reward < 0:
-					#	self.restart = True
-
+				#	if reward > 0:
+				#		self.stop = 2
+				#	elif reward < 0:
+				#		self.restart = True
+			rewards = reward
 			output = [0,0,0]
 			output[move] = 1
 
-			self.episode_reward_sum += reward
+			self.episode_reward_sum += rewards
 
 			tup = None
 			if ((partNum - 3) % 6) < 3:
-				tup = (self.networkInput_top, output, reward)
+				tup = (self.networkInput_top, output, rewards)
 			else:
-				tup = (self.networkInput, output, reward)
+				tup = (self.networkInput, output, rewards)
 			self.network.batch_state_action_reward_tuples.append(tup)
 			if partNum == 14:
 				if reward < 0:
-					print("Training Step %d; Score: %0.3f, Reward: %0.3f,  lost..." % (self.training_step, score, reward))
+					print("Training Step %d; Score: %0.3f, Reward: %0.3f,  lost..." % (self.training_step, score, rewards))
 				elif reward > 0:
-					print("Training Step %d: Score: %0.3f, Reward: %0.3f, won!" % (self.training_step, score, reward))
+					print("Training Step %d: Score: %0.3f, Reward: %0.3f, won!" % (self.training_step, score, rewards))
 				if reward != 0:
 					if score > self.max:
 						self.max = score
@@ -624,7 +636,6 @@ class Agent:
 			elif i == highest:
 				probabilities[i] *= 1.1
 
-
 		probability_addition = probabilities[0] + probabilities[1] + probabilities[2]
 
 		move = 0
@@ -638,6 +649,21 @@ class Agent:
 				move = 2
 			if not(move == banned):
 				break
+
+		if self.front > 66:
+			if self.networkInput[16] == 1:
+				if self.networkInput[2] < 0.48:
+					move = 2
+				elif self.networkInput[2] > 0.52:
+					move = 0
+		elif self.front > 33:
+			if self.networkInput[14] == 1:
+				if self.networkInput[1] < 0.48:
+					move = 0
+				elif self.networkInput[1] > 0.52:
+					move = 2
+
+
 		if self.show == 1:
 			print("Total:", probability_addition, "Percentage:", probabilities[move])
 		return move
@@ -706,18 +732,19 @@ class Agent:
 		if self.training_step == 1:
 			parts = self.array
 			rotations = [(parts[0].getRotation() - parts[1].getRotation()) % 360, (parts[2].getRotation() - parts[1].getRotation()) % 360]
-			#print(self.networkInput[0], self.networkInput[1], self.networkInput[2])
 			if 90 in rotations or 270 in rotations:
 				self.restart = True
 				reward = -1.00
-			elif (((self.networkInput[0] + 0.01) % 1) < 0.02 or ((self.networkInput[1] + 0.01) % 1) < 0.02) and ((self.networkInput[2] + 0.01) % 1) < 0.02:
+			elif self.networkInput[1] < 0.52 and self.networkInput[1] > 0.48 and self.networkInput[2] > 0.48 and self.networkInput[2] < 0.52:
 				print("Flattened")
 				self.training_step = 2
+				self.run_finished = False
+				self.score_tracker = self.cog[0]
+				self.interactive_dist = 0
 				self.won = True
-				self.restart = True
 				reward = 1.00
 		elif self.training_step == 2:
-			if (((self.networkInput[0] + 0.01) % 1) > 0.02 and ((self.networkInput[1] + 0.01) % 1) > 0.02) or ((self.networkInput[2] + 0.01) % 1) > 0.02:
+			if self.networkInput[1] > 0.52 or self.networkInput[1] < 0.48 or self.networkInput[2] < 0.48 or self.networkInput[2] > 0.52:
 				self.restart = True
 				reward = -1.00
 			elif self.networkInput[7] > 0 or self.networkInput[8] > 0:

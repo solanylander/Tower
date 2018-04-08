@@ -202,35 +202,41 @@ class Parts:
 		parts = self.parts
 
 		netInputs = []
-		netInputs.append(parts[0].getRotation() / 360.0)
-		netInputs.append(parts[1].getRotation() / 360.0)
-		netInputs.append(parts[2].getRotation() / 360.0)
+		netInputs.append(((180 + parts[0].getRotation()) % 360) / 360.0)
+		secondRotation = (parts[1].getRotation() - parts[0].getRotation() + 90) % 181
+		thirdRotation = (parts[2].getRotation() - parts[1].getRotation() + 90) % 181
+
+
+
+		netInputs.append(secondRotation / 180.0)
+		netInputs.append(thirdRotation / 180.0)
 
 		greenRotation = parts[3].getRotation()
 		netInputs.append(greenRotation / 360.0)
-		greenRotation = (greenRotation - parts[6].getRotation() + 90) % 180
+		greenRotation = (greenRotation - parts[6].getRotation() + 90) % 181
 		netInputs.append(greenRotation / 180.0)
 
 
 
 		yellowRotation = parts[9].getRotation()
 		netInputs.append(yellowRotation / 360.0)
-		yellowRotation = (yellowRotation - parts[12].getRotation() + 90) % 180
+		yellowRotation = (yellowRotation - parts[12].getRotation() + 90) % 181
 		netInputs.append(yellowRotation / 180.0)
 
 		netInputs.append(sensors[0])
 		netInputs.append(sensors[1])
+		
+		if target:
+			netInputs.append(1)
+		else:
+			netInputs.append(0)
+
 
 		for j in range(7):
 			if j == turn:
 				netInputs.append(1)
 			else:
 				netInputs.append(0)
-
-		if target:
-			netInputs.append(1)
-		else:
-			netInputs.append(0)
 		return netInputs
 
 	def training_move_body(self, inputs):
