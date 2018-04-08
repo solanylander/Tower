@@ -38,9 +38,9 @@ pointers[2] = pygame.image.load("image_resources/big_pointer_2.png").convert_alp
 
 blocks, agents = [],[]
 
-blocks.append(Block(0, 0, 560))
+blocks.append(Block(0, (0, 560)))
 blocks[0].loadImage("image_resources/flat_floor.png")
-blocks.append(Block(0, 980, 350))
+blocks.append(Block(0, (980, 350)))
 blocks[1].loadImage("image_resources/wall.png")
 
 agents.append(Agent((816,448), args))

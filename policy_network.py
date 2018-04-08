@@ -39,7 +39,7 @@ class Network:
             kernel_initializer=tf.contrib.layers.xavier_initializer())
 
         self.up_probability = tf.layers.dense(
-            h_two,
+            h_three,
             units=3,
             activation=tf.sigmoid,
             kernel_initializer=tf.contrib.layers.xavier_initializer())

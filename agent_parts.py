@@ -3,333 +3,249 @@ from pygame.locals import *
 from part import Part
 from random import *
 
-# self.backup self.parts
+# Groups together all the individual parts for one agent
 class Parts:
-
-	def __init__(self, backup, additional, position):
-		parts = []
-		self.backup = backup
+	# Initialize class
+	def __init__(self, backup, position):
+		self.array = []
+		# If this is an agents backup store default values for all parts
 		if backup:
 			for k in range(0,15):
-				parts.append(Part(0, 0, 0, False, 0, 0))
+				self.array.append(Part(0, 0))
+		# Otherwise spawn agent in a random position
 		else:
-			rand_one = randint(-30, 30) 
-			rand_two = rand_one - additional[0]
-			rand_three = rand_one + additional[1]
-			parts.append(Part(rand_two, position[0], position[1], True, 50, 0))
-			parts.append(Part(rand_one, 0, 0, False, 50, 1))
-			parts.append(Part(rand_three, 0, 0, False, 50, 2))
+			# Initialise the body and head of the agent
+			random = randint(-30, 30)
+			# The back of the agent is the heaviest so that it does ot topple forwards
+			self.array.append(Part(random + randint(-89,89), 50, 23.44, position))
+			self.array.append(Part(random, 50, 11.72))
+			self.array.append(Part(random + randint(-89,89), 50, 8.24))
+			# Load the head and bodies image files
+			self.array[0].loadImage("image_resources/body.png")
+			self.array[1].loadImage("image_resources/body.png")
+			self.array[2].loadImage("image_resources/head.png")
 
+			# Initialise the legs of the agent
 			for i in range(0, 2):
-				rands = [randint(0, 360),randint(-90, 90)]
-				parts.append(Part(rands[0], 0, 0, False, 12, 3 + i * 6))
-				parts.append(Part(rands[0], 0, 0, False, 12, 4 + i * 6))
-				parts.append(Part(rands[0], 0, 0, False, 12, 5 + i * 6))
-				parts.append(Part(rands[0] + rands[1], 0, 0, False, 12, 6 + i * 6))
-				parts.append(Part(rands[0] + rands[1], 0, 0, False, 12, 7 + i * 6))
-				parts.append(Part(rands[0] + rands[1], 0, 0, False, 12, 8 + i * 6))
+				random_values = [randint(0, 360),randint(-90, 90)]
+				# The legs on each side of the agent should have matching rotations
+				# The weight of each leg is 0.66 * 2 (Since each leg is made of 2 parts)
+				self.array.append(Part(random_values[0], 12, 0.66))
+				self.array.append(Part(random_values[0], 12, 0.66))
+				self.array.append(Part(random_values[0], 12, 0.66))
+				self.array.append(Part(random_values[0] + random_values[1], 12, 0.66))
+				self.array.append(Part(random_values[0] + random_values[1], 12, 0.66))
+				self.array.append(Part(random_values[0] + random_values[1], 12, 0.66))
 
-			parts[0].loadImage("image_resources/body.png")
-			parts[1].loadImage("image_resources/body.png")
-			parts[2].loadImage("image_resources/head.png")
-			# Body parts and heads weight
-			parts[0].setWeight(23.44)
-			parts[1].setWeight(11.72)
-			parts[2].setWeight(8.24)
-
+			# Load the image files for the legs
 			for j in range(3, 15):
-				# Load the image files and set the constraints
-				parts[j].loadImage("image_resources/leg.png")
-				parts[j].setWeight(0.66)
-			for j in range(9, 15):
-				# Load the image files and set the constraints
-				#parts[j].loadImage("image_resources/leg_yellow.png")
-				parts[j].loadImage("image_resources/leg.png")
-		self.parts = parts
+				self.array[j].loadImage("image_resources/leg.png")
+			# Set each parts position and constraints
+			self.setPositions(position)
+			self.setConstraints()
 
-		self.legcounter = 0
 
+	# Link a backup to the actual agents parts and vice-versa
 	def load_pair(self, pair):
 		self.pair = pair
 
+	# Replaces values with values from backup
 	def duplicate(self):
-		parts = self.parts
+		array = self.array
 		pair = self.pair
 		for i in range(0,15):
-			parts[i].setPosition(self.pair.parts[i].getPosition())
-			parts[i].setConstraint(self.pair.parts[i].getConstraint())
-			parts[i].setRotation(self.pair.parts[i].getRotation(), False)
-			if not self.backup:
-				parts[i].rotation(0, False)
+			array[i].setPosition(pair.array[i].getPosition())
+			array[i].setConstraint(pair.array[i].getConstraint())
+			array[i].setRotation(pair.array[i].getRotation())
 
-		# Sets all the parts positions with regards to the agents pivot
+	# Sets all the parts positions with regards to the agents pivot
 	def setPositions(self, pivot):
-		parts = self.parts
+		# This method finds the distance each part should be from its pivot and uing the rotation of the agents other parts
+		# Calculates where it should be
+		array = self.array
 		# Rotation of the agents abdominal segments
-		backRotation = (math.cos(parts[0].getRotation() / 180 * math.pi), math.sin((180.0 + parts[0].getRotation()) / 180 * math.pi))
-		frontRotation = (math.cos(parts[1].getRotation() / 180 * math.pi), math.sin((180.0 + parts[1].getRotation()) / 180 * math.pi))
-		# Back abdominal segment
-		parts[0].setPosition(pivot)
-		pos = parts[0].getPosition()
+		backRotation = (math.cos(array[0].getRotation() / 180 * math.pi), math.sin((180.0 + array[0].getRotation()) / 180 * math.pi))
+		frontRotation = (math.cos(array[1].getRotation() / 180 * math.pi), math.sin((180.0 + array[1].getRotation()) / 180 * math.pi))
+		# Set Back abdominal segments position to the pivot
+		array[0].setPosition(pivot)
 		# Front abdominal segment
-		parts[1].setPosition((pos[0] + (backRotation[0] * 39.0), pos[1] + (backRotation[1] * 39.0)))
+		array[1].setPosition((pivot[0] + (backRotation[0] * 39.0), pivot[1] + (backRotation[1] * 39.0)))
 		# Head
-		parts[2].setPosition((pos[0] + (backRotation[0] * 39.0) + (frontRotation[0] * 39.0), pos[1] + (backRotation[1] * 39.0) + (frontRotation[1] * 39.0)))
+		array[2].setPosition((pivot[0] + (backRotation[0] * 39.0) + (frontRotation[0] * 39.0), pivot[1] + (backRotation[1] * 39.0) + (frontRotation[1] * 39.0)))
 		for i in range(0,2):
 			offset = i * 6
 			# Back leg (top)
-			parts[3 + offset].setPosition((pos[0] + 38 + (backRotation[0] * 12), pos[1] + 40 + (backRotation[1] * 12)))
-			legRotation = (math.sin(parts[3 + offset].getRotation() / 180 * math.pi), -math.cos((180.0 + parts[3 + offset].getRotation()) / 180 * math.pi))
+			array[3 + offset].setPosition((pivot[0] + 38 + (backRotation[0] * 12), pivot[1] + 40 + (backRotation[1] * 12)))
+			legRotation = (math.sin(array[3 + offset].getRotation() / 180 * math.pi), -math.cos((180.0 + array[3 + offset].getRotation()) / 180 * math.pi))
 			# Back leg (bottom)
-			parts[6 + offset].setPosition((pos[0] + 38 + (backRotation[0] * 12) + (legRotation[0] * 11.5), pos[1] + 40 + (backRotation[1] * 12) + (legRotation[1] * 11.5)))
+			array[6 + offset].setPosition((pivot[0] + 38 + (backRotation[0] * 12) + (legRotation[0] * 11.5), pivot[1] + 40 + (backRotation[1] * 12) + (legRotation[1] * 11.5)))
 			# Middle leg (top)
-			parts[4 + offset].setPosition((pos[0] + 38 + (backRotation[0] * 39), pos[1] + 40 + (backRotation[1] * 39)))
-			legRotation = (math.sin(parts[4 + offset].getRotation() / 180 * math.pi), -math.cos((180.0 + parts[4 + offset].getRotation()) / 180 * math.pi))
+			array[4 + offset].setPosition((pivot[0] + 38 + (backRotation[0] * 39), pivot[1] + 40 + (backRotation[1] * 39)))
+			legRotation = (math.sin(array[4 + offset].getRotation() / 180 * math.pi), -math.cos((180.0 + array[4 + offset].getRotation()) / 180 * math.pi))
 			# Middle leg (bottom)
-			parts[7 + offset].setPosition((pos[0] + 38 + (backRotation[0] * 39) + (legRotation[0] * 11.5), pos[1] + 40 + (backRotation[1] * 39) + (legRotation[1] * 11.5)))
+			array[7 + offset].setPosition((pivot[0] + 38 + (backRotation[0] * 39) + (legRotation[0] * 11.5), pivot[1] + 40 + (backRotation[1] * 39) + (legRotation[1] * 11.5)))
 			# Front leg (top)
-			parts[5 + offset].setPosition((pos[0] + 38 + (backRotation[0] * 39) + (frontRotation[0] * 27), pos[1] + 40 + (backRotation[1] * 39) + (frontRotation[1] * 27)))
+			array[5 + offset].setPosition((pivot[0] + 38 + (backRotation[0] * 39) + (frontRotation[0] * 27), pivot[1] + 40 + (backRotation[1] * 39) + (frontRotation[1] * 27)))
 			# Front leg (bottom)
-			legRotation = (math.sin(parts[5 + offset].getRotation() / 180 * math.pi), -math.cos((180.0 + parts[5 + offset].getRotation()) / 180 * math.pi))
-			parts[8 + offset].setPosition((pos[0] + 38 + (backRotation[0] * 39) + (legRotation[0] * 11.5) + (frontRotation[0] * 27), pos[1] + 40 + (backRotation[1] * 39)  + (legRotation[1] * 11.5)+ (frontRotation[1] * 27)))
+			legRotation = (math.sin(array[5 + offset].getRotation() / 180 * math.pi), -math.cos((180.0 + array[5 + offset].getRotation()) / 180 * math.pi))
+			array[8 + offset].setPosition((pivot[0] + 38 + (backRotation[0] * 39) + (legRotation[0] * 11.5) + (frontRotation[0] * 27), pivot[1] + 40 + (backRotation[1] * 39)  + (legRotation[1] * 11.5)+ (frontRotation[1] * 27)))
 
 
-
-
-	def getParts(self):
-		return self.parts
-
-
-	# Draw all the images
+	# Draw the images for each part
 	def run(self, DS):
-		parts = self.parts
+		array = self.array
 		for i in range(9,15):
-			DS.blit(parts[i].getImage(), parts[i].getPosition())
+			DS.blit(array[i].getImage(), array[i].getPosition())
 		for i in range(0,9):
-			DS.blit(parts[i].getImage(), parts[i].getPosition())
+			DS.blit(array[i].getImage(), array[i].getPosition())
 
 
 
 	# Calculate the agents center of gravity
 	def centerOfGravity(self, pivot):
-		parts = self.parts
+		array = self.array
 		cog = (0,0)
 		centers = []
-		weight = 0
 		# Agents co-ordinate
-		pos = parts[0].getPosition()
 		# Convert each parts current angle to a 2D vector
 		partRotations = []
 		for q in range(0,15):
+			# Since the body parts and the legs initially start at different rotations the calculations for them are different
 			if q < 3:
-				partRotations.append((math.cos(parts[q].getRotation() / 180 * math.pi), math.sin((180.0 + parts[q].getRotation()) / 180 * math.pi)))
+				partRotations.append((math.cos(array[q].getRotation() / 180 * math.pi), math.sin((180.0 + array[q].getRotation()) / 180 * math.pi)))
 			else:
-				partRotations.append((math.cos((parts[q].getRotation() - 90) / 180 * math.pi), math.sin((180.0 + (parts[q].getRotation() - 90)) / 180 * math.pi)))
+				partRotations.append((math.cos((array[q].getRotation() - 90) / 180 * math.pi), math.sin((180.0 + (array[q].getRotation() - 90)) / 180 * math.pi)))
+
+		# 1/2 the length of each part
+		distances = [18,18,9,5,5,5,5,5,5,5,5,5,5,5,5]
 
 		# Find the center points of each part
-		# Calculated by finding the connecting part to the body which is the center point (find top left of image then add half the image width)
-		# then calculate the parts rotation and multiply it by the number of pixels away the center of the part is from the images center
-		centers.append((pos[0] + (partRotations[0][0] * 17.0) + 50, pos[1] + (partRotations[0][1] * 17.0) + 50))
-		centers.append((pos[0] + (partRotations[0][0] * 39.0) + (partRotations[1][0] * 17.0) + 50, pos[1] + (partRotations[0][1] * 39.0) + (partRotations[1][1] * 17.0) + 50))
-		centers.append((pos[0] + (partRotations[0][0] * 39.0) + (partRotations[1][0] * 39.0) + (partRotations[2][0] * 9.0) + 50, pos[1] + (partRotations[0][1] * 39.0) + (partRotations[1][1] * 39.0) + (partRotations[2][1] * 9.0) + 50))
-		centers.append((pos[0] + 38 + (partRotations[0][0] * 12) + (partRotations[3][0] * 5) + 13, pos[1] + 40 + (partRotations[0][1] * 12) + (partRotations[3][1] * 5) + 13))
-		centers.append((pos[0] + 38 + (partRotations[0][0] * 39) + (partRotations[4][0] * 5) + 13, pos[1] + 40 + (partRotations[0][1] * 39) + (partRotations[4][1] * 5) + 13))
-		centers.append((pos[0] + 38 + (partRotations[0][0] * 39) + (partRotations[1][0] * 27) + (partRotations[5][0] * 5) + 13, pos[1] + 40 + (partRotations[0][1] * 39) + (partRotations[1][1] * 27) + (partRotations[5][1] * 5) + 13))
-		centers.append((pos[0] + 38 + (partRotations[0][0] * 12) + (partRotations[3][0] * 12) + (partRotations[6][0] * 5) + 13, pos[1] + 40 + (partRotations[0][1] * 12) + (partRotations[3][1] * 12) + (partRotations[6][1] * 5) + 13))
-		centers.append((pos[0] + 38 + (partRotations[0][0] * 39) + (partRotations[4][0] * 12) + (partRotations[7][0] * 5) + 13, pos[1] + 40 + (partRotations[0][1] * 39) + (partRotations[4][1] * 12) + (partRotations[7][1] * 5) + 13))
-		centers.append((pos[0] + 38 + (partRotations[0][0] * 39) + (partRotations[1][0] * 27) + (partRotations[5][0] * 12) + (partRotations[8][0] * 5) + 13, pos[1] + 40 + (partRotations[0][1] * 39) + (partRotations[1][1] * 27) + (partRotations[5][1] * 12) + (partRotations[8][1] * 5) + 13))
-		centers.append((pos[0] + 38 + (partRotations[0][0] * 12) + (partRotations[9][0] * 5) + 13, pos[1] + 40 + (partRotations[0][1] * 12) + (partRotations[9][1] * 5) + 13))
-		centers.append((pos[0] + 38 + (partRotations[0][0] * 39) + (partRotations[10][0] * 5) + 13, pos[1] + 40 + (partRotations[0][1] * 39) + (partRotations[10][1] * 5) + 13))
-		centers.append((pos[0] + 38 + (partRotations[0][0] * 39) + (partRotations[1][0] * 27) + (partRotations[11][0] * 5) + 13, pos[1] + 40 + (partRotations[0][1] * 39) + (partRotations[1][1] * 27) + (partRotations[11][1] * 5) + 13))
-		centers.append((pos[0] + 38 + (partRotations[0][0] * 12) + (partRotations[9][0] * 12) + (partRotations[12][0] * 5) + 13, pos[1] + 40 + (partRotations[0][1] * 12) + (partRotations[9][1] * 12) + (partRotations[12][1] * 5) + 13))
-		centers.append((pos[0] + 38 + (partRotations[0][0] * 39) + (partRotations[10][0] * 12) + (partRotations[13][0] * 5) + 13, pos[1] + 40 + (partRotations[0][1] * 39) + (partRotations[10][1] * 12) + (partRotations[13][1] * 5) + 13))
-		centers.append((pos[0] + 38 + (partRotations[0][0] * 39) + (partRotations[1][0] * 27) + (partRotations[11][0] * 12) + (partRotations[14][0] * 5) + 13, pos[1] + 40 + (partRotations[0][1] * 39) + (partRotations[1][1] * 27) + (partRotations[11][1] * 12) + (partRotations[14][1] * 5) + 13))
-		
-		# Add all parts center of gravity multiplied by there specific weight
+		# Calculated (1/2 parts length * angle) + pivot
 		for i in range(0,15):
-			cog = (cog[0] + (centers[i][0] * parts[i].getWeight()), cog[1] + (centers[i][1] * parts[i].getWeight()))
-			weight += parts[i].getWeight()
+			centers.append((array[i].getPivot()[0] + (partRotations[i][0] * distances[i]), array[i].getPivot()[1] + (partRotations[i][1] * distances[i])))
+
+		# Multiply the position of each agent by its weight to find the agents total center of gravity
+		weight = 0
+		for i in range(0,15):
+			cog = (cog[0] + (centers[i][0] * array[i].getWeight()), cog[1] + (centers[i][1] * array[i].getWeight()))
+			weight += array[i].getWeight()
 		# Divide by the total weight of the agent
 		cog = (cog[0] / weight, cog[1] / weight)
 		return cog
 
 
-	# Set the constraints of each part
+	# Set the constraint of each part
 	def setConstraints(self):
-		parts = self.parts
-		parts[0].setConstraint(parts[1].getRotation())
-		parts[1].setConstraint(parts[0].getRotation())
-		parts[2].setConstraint(parts[1].getRotation())
+		array = self.array
+		# The constraints of the body parts and head and related to the rotation
+		# of the next part the agent is connected to
+		array[0].setConstraint(array[1].getRotation())
+		array[1].setConstraint(array[0].getRotation())
+		array[2].setConstraint(array[1].getRotation())
 		for i in range(0,2):
 			offset = i * 6
-			parts[3 + offset].setConstraint(-1)
-			parts[4 + offset].setConstraint(-1)
-			parts[5 + offset].setConstraint(-1)
-			parts[6 + offset].setConstraint(parts[3 + offset].getRotation())
-			parts[7 + offset].setConstraint(parts[4 + offset].getRotation())
-			parts[8 + offset].setConstraint(parts[5 + offset].getRotation())
+			# The top parts of the agents legs have no constraint (shown by the -1)
+			array[3 + offset].setConstraint(-1)
+			array[4 + offset].setConstraint(-1)
+			array[5 + offset].setConstraint(-1)
+			# The bottom part of each leg has its constraint tied to the rotation of the top part
+			array[6 + offset].setConstraint(array[3 + offset].getRotation())
+			array[7 + offset].setConstraint(array[4 + offset].getRotation())
+			array[8 + offset].setConstraint(array[5 + offset].getRotation())
 
+
+	# When the agent moves a leg and it collides with the environment instead of cancelling the move
+	# the agent should push off with the leg and move the rest of its body to compensate
+	# this allows the agent to move around the environment
+	def interactiveMove(self, part_num, direction_top, direction_bottom, colliding):
+		array = self.array
+		# Get the pivot of the part that is attempting to move
+		initialPos = array[part_num].getPivot()
+		# Get the distance between the pivot and where the agent collided with the environment
+		distance = (initialPos[0] - colliding[0][0], initialPos[1] - colliding[0][1])
+		hypD = math.sqrt(distance[0] * distance[0] + distance[1] * distance[1])
+
+		# Get the x,y distance between the pivot and the point on the agent where it will collide after rotating
+		# So hypontenuese distance is be the same as distance but the x,y values are slightly different
+		rotation = (math.atan(distance[0] / distance[1]) * 180.0 / math.pi) - direction_top
+		oldPos = (hypD * math.sin(rotation * math.pi / 180.0), hypD * math.cos(rotation * math.pi / 180.0))
+		# If the collision point is above the pivot reverse the values since they will all be negative
+		if distance[1] > 0:
+			oldPos = (-oldPos[0], -oldPos[1])
+		# Find the diffence between where the part will be and where it is currently
+		# Minus 1 from the height since the parts dont have smooth edges (Pixels are squares)
+		# This is added back later
+		oldPos = (oldPos[0] + distance[0], oldPos[1] + distance[1] - 1.0)
+
+		# Rotate both parts of the leg since they were reset when the agent colldied with the environment
+		array[part_num].rotate(direction_top)
+		array[part_num + 3].rotate(direction_bottom)
+
+		# Recalibrate the parts of the agent so they are in the correct position
+		self.setPositions(array[0].getPosition())
+		# Return the difference between where the agent is an where is should be
+		return oldPos
 
 	# Rotate entire agent
 	def rotateAll(self, amount):
 		for iterate in range(0,15):
-			self.parts[iterate].rotation(amount, True)
-
-	# When the agent pushes off with a leg the rest of its body should follow
-	def interactiveMove(self, part_num, direction_top, direction_bottom, cog, colliding):
-		parts = self.parts
-		initialPos = parts[part_num].getPivot()
-		distance = (initialPos[0] - colliding[0][0], initialPos[1] - colliding[0][1])
-		hypD = math.sqrt(distance[0] * distance[0] + distance[1] * distance[1])
-
-		rotation = (math.atan(distance[0] / distance[1]) * 180.0 / math.pi) - direction_top
-		newPos = (hypD * math.sin(rotation * math.pi / 180.0), hypD * math.cos(rotation * math.pi / 180.0))
-		if distance[1] > 0:
-			newPos = (-newPos[0], -newPos[1])
-		newPos = (newPos[0] + distance[0], newPos[1] + distance[1] - 1.0)
+			# Since the entire agent is being rotated by the same amount ignore the constraint check
+			self.array[iterate].rotate(amount, True)
 
 
-		parts[part_num].rotation(direction_top, False)
-		parts[part_num + 3].rotation(direction_bottom, False)
 
-		pivot = parts[0].getPosition()
-		self.setPositions(pivot)
-
-		return newPos
-
-
+	# Set the inputs for the agents neural network
 	def inputs(self, pivot, turn, sensors, target):
-		parts = self.parts
+		array = self.array
+		# Array of input values to be returned
+		net_inputs = []
+		# Rotation of the back abdominal section of the agent
+		# By adding 180 it means the point at which the value change from 0 to 1 is in a less used location
+		net_inputs.append(((180 + array[0].getRotation()) % 360) / 360.0)
+		# The difference between the agent back and middle segments
+		second_rotation = (array[1].getRotation() - array[0].getRotation() + 90) % 181
+		# The difference between the agent middle and head segments
+		third_rotation = (array[2].getRotation() - array[1].getRotation() + 90) % 181
 
-		netInputs = []
-		netInputs.append(((180 + parts[0].getRotation()) % 360) / 360.0)
-		secondRotation = (parts[1].getRotation() - parts[0].getRotation() + 90) % 181
-		thirdRotation = (parts[2].getRotation() - parts[1].getRotation() + 90) % 181
+		# Scale between 0 and 1
+		net_inputs.append(second_rotation / 180.0)
+		net_inputs.append(third_rotation / 180.0)
+
+		# top segment of the front set of legs
+		# Since they all legs on the same side have the same rotation we only the need the value of one
+		front_rotation = array[3].getRotation()
+		net_inputs.append(front_rotation / 360.0)
+		# Difference in rotation between the top of the leg and the bottom. Scaled to between 0 and 1
+		front_rotation = (front_rotation - array[6].getRotation() + 90) % 181
+		net_inputs.append(front_rotation / 180.0)
+
+		# top segment of the back set of legs
+		# Since they all legs on the same side have the same rotation we only the need the value of one
+		back_rotation = array[9].getRotation()
+		net_inputs.append(back_rotation / 360.0)
+		# Difference in rotation between the top of the leg and the bottom. Scaled to between 0 and 1
+		back_rotation = (back_rotation - array[12].getRotation() + 90) % 181
+		net_inputs.append(back_rotation / 180.0)
 
 
-
-		netInputs.append(secondRotation / 180.0)
-		netInputs.append(thirdRotation / 180.0)
-
-		greenRotation = parts[3].getRotation()
-		netInputs.append(greenRotation / 360.0)
-		greenRotation = (greenRotation - parts[6].getRotation() + 90) % 181
-		netInputs.append(greenRotation / 180.0)
-
-
-
-		yellowRotation = parts[9].getRotation()
-		netInputs.append(yellowRotation / 360.0)
-		yellowRotation = (yellowRotation - parts[12].getRotation() + 90) % 181
-		netInputs.append(yellowRotation / 180.0)
-
-		netInputs.append(sensors[0])
-		netInputs.append(sensors[1])
-		
+		# Sensor values
+		net_inputs.append(sensors[0])
+		net_inputs.append(sensors[1])
+		# If the sensor can see the target the value of this input is 1
 		if target:
-			netInputs.append(1)
+			net_inputs.append(1)
 		else:
-			netInputs.append(0)
+			net_inputs.append(0)
 
-
+		# Which part the agent is attempting to move
+		# 0-Back 1-Middle 2-Head 3-Front Legs(Top) 4-Front Legs(Bot) 5-Back Legs(Top) 6-Back Legs(Bot)
 		for j in range(7):
 			if j == turn:
-				netInputs.append(1)
+				net_inputs.append(1)
 			else:
-				netInputs.append(0)
-		return netInputs
+				net_inputs.append(0)
 
-	def training_move_body(self, inputs):
-		parts = self.parts
-		move = 1
+		return net_inputs
 
-
-		# Fix climb over other agent
-		# fix collisions
-
-		if inputs[13] == 1:
-			if inputs[7] < 0.05 and inputs[8] < 0.05:
-				difference = (inputs[0] - inputs[1]) % 1
-				if difference > 0.003 and difference < 0.5:
-					move = 0
-				elif difference > 0.5:
-					move = 2
-			else:
-				if inputs[5] < 0.3 and inputs[3] <= 0.3:
-					if (inputs[0] < 0.12 or inputs[0] > 0.75):
-						move = 2
-					elif inputs[0] > 0.15:
-						move = 0
-		elif inputs[14] == 1:
-			if (inputs[7] >= 0.6 or inputs[8] >= 0.6) and inputs[0] > 0.12 and inputs[0] < 0.15 and inputs[16] == 1:
-				if inputs[1] > 0.5:
-					move = 2
-				elif inputs[1] > 0.03:
-					move = 0
-			elif inputs[16] == 0 and (inputs[7] > 0.1 or inputs[8] > 0.1):
-				difference = (inputs[0] - inputs[1] + 0.12) % 1
-				if inputs[8] == 0 and inputs[7] > 0.75:
-					difference = (inputs[0] - inputs[1] - 0.05) % 1
-				if difference > 0.003 and difference < 0.5:
-					move = 2
-				elif difference > 0.5:
-					move = 0
-		elif inputs[15] == 1:
-			if inputs[7] == 0 and inputs[8] == 0:
-				difference = (inputs[2] - inputs[1]) % 1
-				if difference > 0.003 and difference < 0.5:
-					move = 0
-				elif difference > 0.5:
-					move = 2
-			if (inputs[7] >= 0.6 or inputs[8] >= 0.6) and inputs[16] == 1:
-				difference = (inputs[2] - inputs[1]) % 1
-				if difference > 0.75 or difference < 0.5:
-					move = 0
-		return move
-
-	def training_move_leg(self, inputs):
-		move = 1
-		decide = (inputs[3] - inputs[5] - 0.5) % 1
-		if inputs[9] == 1:
-
-
-			if (inputs[7] > 0 or inputs[8] > 0) and inputs[16] == 0:
-				move = 0
-			elif (inputs[7] < 0.5 and inputs[8] < 0.5):
-				difference = ((inputs[0] - inputs[1]) % 1) + ((inputs[2] - inputs[1]) % 1)
-				if difference < 0.012 and decide < 0.5 :
-					move = 0
-			elif ((inputs[7] >= 0.5 and inputs[7] < 0.6) or (inputs[8] >= 0.5 and inputs[8] < 0.6)) and inputs[0] > 0.12 and inputs[0] < 0.15 and inputs[16] == 1:
-				move = 0
-			else:
-				if inputs[16] == 0:
-					difference = ((inputs[0] - inputs[1] + 0.1) % 1) + ((inputs[2] - inputs[1]) % 1)
-					if difference < 0.012 and decide < 0.5:
-						move = 0
-				elif inputs[3] > 0.25:
-					move = 0
-
-		elif inputs[10] == 1:
-			if (inputs[7] < 0.5 and inputs[8] < 0.5) or inputs[16] == 0 and inputs[4] < 1:
-				move = 0
-		elif inputs[11] == 1:
-			if (inputs[7] > 0 or inputs[8] > 0) and inputs[16] == 0:
-				move = 0
-			elif (inputs[7] < 0.5 and inputs[8] < 0.5):
-				difference = ((inputs[0] - inputs[1]) % 1) + ((inputs[2] - inputs[1]) % 1)
-				if difference < 0.012 and (decide < 0.003 or decide >= 0.5):
-					move = 0
-			elif ((inputs[7] >= 0.5 and inputs[7] < 0.6) or (inputs[8] >= 0.5 and inputs[8] < 0.6)) and inputs[0] > 0.12 and inputs[0] < 0.15 and inputs[16] == 1:
-				move = 0
-			else:
-				if inputs[16] == 0:
-					difference = ((inputs[0] - inputs[1] + 0.1) % 1) + ((inputs[2] - inputs[1]) % 1)
-					if difference < 0.012 and decide < 0.5:
-						move = 0
-				elif inputs[5] > 0.25:
-					move = 0
-		elif inputs[12] == 1:
-			if (inputs[7] < 0.5 and inputs[8] < 0.5) or inputs[16] == 0 and inputs[4] < 1:
-				move = 0
-		return move
-
+	def rewards(self, inputs):
+		

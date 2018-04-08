@@ -1,131 +1,144 @@
-import gym, random, os, tflearn
-import tensorflow as tf
+import os.path
 import numpy as np
-from tflearn.layers.core import input_data, dropout, fully_connected
-from tflearn.layers.estimator import regression
-from statistics import mean, median
-from collections import Counter
+import tensorflow as tf
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
-LR = 1e-3
+# Number of input neurons
+INPUT_SIZE = 17
+HIDDEN_LAYER_SIZE = 14
+LEARNING_RATE = 0.1
+CHECKPOINT_COUNTER = 2
 
-class random_network:
-	def __init__(self):
-		self.trainingData = []
-		self.scores = []
-		self.acceptedScores = []
-		self.gameMemory = []
-		self.prevObs = []
-		self.max = 0
+class Network:
+	def __init__(self, load_checkpoint):
+		self.learning_rate = LEARNING_RATE
+		self.save_counter = 0
+		self.sess = tf.InteractiveSession()
+		self.batch_state_action_reward_tuples = []
+
+		self.input_layer = tf.placeholder(tf.float32, [None, INPUT_SIZE])
+		# Rotate Anti-Clockwise, Hold Current Position, Rotate Clockwise
+		self.outputs = tf.placeholder(tf.float32, [None, 3])
+		self.advantage = tf.placeholder(tf.float32, [None, 1], name='advantage')
+
+		# This network has 3 hidden layers
+		h_one = tf.layers.dense(
+		self.input_layer,
+		units=HIDDEN_LAYER_SIZE,
+		activation=tf.nn.relu,
+		kernel_initializer=tf.contrib.layers.xavier_initializer())
+
+		h_two = tf.layers.dense(
+		h_one,
+		units=HIDDEN_LAYER_SIZE,
+		activation=tf.nn.relu,
+		kernel_initializer=tf.contrib.layers.xavier_initializer())
+
+		h_three = tf.layers.dense(
+		h_two,
+		units=HIDDEN_LAYER_SIZE,
+		activation=tf.nn.relu,
+		kernel_initializer=tf.contrib.layers.xavier_initializer())
+
+		self.output_layer = tf.layers.dense(
+		h_three,
+		units=3,
+		activation=tf.sigmoid,
+		kernel_initializer=tf.contrib.layers.xavier_initializer())
+
+		# Train based on the log probability of the sampled action.
+		# 
+		# The idea is to encourage actions taken in rounds where the agent won,
+		# and discourage actions in rounds where the agent lost.
+		# More specifically, we want to increase the log probability of winning
+		# actions, and decrease the log probability of losing actions.
+		#
+		# Which direction to push the log probability in is controlled by
+		# 'advantage', which is the reward for each action in each round.
+		# Positive reward pushes the log probability of chosen action up;
+		# negative reward pushes the log probability of the chosen action down.
+		self.loss = tf.losses.log_loss(
+			labels=self.outputs,
+			predictions=self.output_layer,
+			weights=self.advantage)
+		optimizer = tf.train.AdamOptimizer(self.learning_rate)
+		self.train_op = optimizer.minimize(self.loss)
+
+		tf.global_variables_initializer().run()
+
+		self.saver = tf.train.Saver()
+		self.checkpoint_file = 'checkpoints/policy_network.ckpt'
+		print("LOAD checkpoint", load_checkpoint)
+
+	def train(self, state_action_reward_tuples):
+		states, actions, rewards = zip(*state_action_reward_tuples)
+		states = np.vstack(states)
+		actions = np.vstack(actions)
+		rewards = np.vstack(rewards)
+
+		feed_dict = {
+			self.observations: states,
+			self.sampled_actions: actions,
+			self.advantage: rewards
+		}
+
+		self.sess.run(self.train_op, feed_dict)
 
 
-	def initialPopulation(self, observation, store):
-		observation = np.array(observation)
-		while True:
-			action = random.randrange(0,30)
-			if action < 15:
-				if observation[(action * 3) + 159] == 0:
+	def load_checkpoint(self):
+		print("Loading checkpoint...")
+		self.saver.restore(self.sess, self.checkpoint_file)
+
+	def save_checkpoint(self):
+		print("Saving checkpoint...")
+		self.saver.save(self.sess, self.checkpoint_file)
+
+	def update_learn_rate(self):
+		self.learning_rate /= 10
+		optimizer = tf.train.AdamOptimizer(self.learning_rate)
+		self.train_op = optimizer.minimize(self.loss)
+		tf.global_variables_initializer().run()
+		self.load_checkpoint()
+
+
+	def forward_pass(self, inputs):
+		inputs = np.array(inputs)
+		probabilities = self.sess.run(
+			self.output_layer,
+			feed_dict={self.input_layer: inputs.reshape([1, -1])})
+		return probabilities
+
+
+
+	def discount_rewards(self, rewards, discount_factor):
+		discounted_rewards = np.zeros_like(rewards)
+		for t in range(len(rewards)):
+			discounted_reward_sum = 0
+			discount = 1
+			through = 0
+			for k in range(t, len(rewards)):
+				discounted_reward_sum += rewards[k] * discount
+				discount *= discount_factor
+				if rewards[k] != 0:
+					# Don't count rewards from subsequent rounds
 					break
-			else:
-				if observation[((action - 15) * 3) + 158] == 0:
-					break
-		if not store:
-			self.gameMemory.append([observation, action])
-		return action
+			discounted_rewards[t] = discounted_reward_sum
+		return discounted_rewards
 
 
-	def nextGame(self):
-		self.model.set_weights(self.network.W, np.random.rand(128, 3))
-		#print("here")
-
-	def initialiseNetwork(self):
-		self.trainModel()
-		self.trainingData = []
-		self.scores = []
-		self.acceptedScores = []
-		self.gameMemory = []
-		self.prevObs = []
-
-	def saveNetwork(self):
-		print("save")
-		trainingDataSave = np.array(self.trainingData)
-		scoresSave = np.array(self.acceptedScores)
-		np.save('trainingData15.npy', trainingDataSave)
-		np.save('scores15.npy', scoresSave)
-
-	def loadNetwork(self):
-		#self.trainingData1 = np.load('trainingDataEleve.npy')
-		#self.trainingData2 = np.load('trainingDataTwe.npy')
-		#self.trainingData3 = np.load('trainingData13.npy')
-		#self.trainingData4 = np.load('trainingData14.npy')
-		print("hi")
-
-	def afterInitial(self):
-		self.scores = []
+	def finishEpisode(self):
+		print("Start Training:", len(self.batch_state_action_reward_tuples))
+		states, actions, rewards = zip(*self.batch_state_action_reward_tuples)
+		rewards = self.discount_rewards(rewards, 0.9999)
+		i = 0
+		while i < len(rewards):
+			print("Reward Tracker", i, rewards[i])
+			i += 100
+		self.batch_state_action_reward_tuples = list(zip(states, actions, rewards))
+		self.train(self.batch_state_action_reward_tuples)
+		self.batch_state_action_reward_tuples = []
 
 
-	def neuralNetworkModel(self, input_size):
-		network = input_data(shape=[None, input_size, 1], name='input')
+		self.save_counter += 1
 
-		network = fully_connected(network, 128, activation='relu')
-		network = dropout(network, 0.8)
-
-
-		network = fully_connected(network, 256, activation='relu')
-		network = dropout(network, 0.8)
-
-
-		network = fully_connected(network, 512, activation='relu')
-		network = dropout(network, 0.8)
-
-
-		network = fully_connected(network, 256, activation='relu')
-		network = dropout(network, 0.8)
-
-
-		network = fully_connected(network, 128, activation='relu')
-		network = dropout(network, 0.8)
-
-		network = fully_connected(network, 3, activation='softmax')
-		self.network = regression(network, optimizer='adam', learning_rate=LR, loss='categorical_crossentropy', name='targets')
-
-		model = tflearn.DNN(self.network, tensorboard_dir='log')
-		return model
-
-	def trainModel(self):
-		#print("train", len(self.trainingData))
-		trainingData = []
-		#for j in range(len(self.trainingData1)):
-		#	trainingData.append(self.trainingData1[j])
-		#for j in range(len(self.trainingData2)):
-		#	trainingData.append(self.trainingData2[j])
-		#for j in range(len(self.trainingData4)):
-		#	trainingData.append(self.trainingData4[j])
-		#print(len(trainingData))
-
-		#X = np.array([i[0] for i in trainingData]).reshape(-1, len(trainingData[0][0]), 1)
-		#y = [i[1] for i in trainingData]
-
-		self.model = self.neuralNetworkModel(input_size = 17)
-
-		#self.model.fit({'input':X}, {'targets':y}, n_epoch=5, snapshot_step=500, show_metric=True, run_id='openaistuff')
-
-		#self.model.load('test3.model')
-		#self.model.fit({'input':A}, {'targets':b}, n_epoch=3, snapshot_step=500, show_metric=True, run_id='openaistuff')
-
-	def nextGameCompleted(self, score):
-		self.scores.append(score)
-		self.gameMemory = []
-
-	def move(self, observation):
-		# rand = random.randrange(4,100)
-		# rand = int((100 / rand))
-		# rand = random.randrange(1,4)
-		observation = np.array(observation)
-		self.observation = observation
-		self.observation = np.reshape(observation, (-1, len(observation), 1))
-		self.prediction = self.model.predict(self.observation)[0]
-		return self.prediction
-
-	def store(self, observation, action):
-			self.gameMemory.append([observation, action])
+		if self.save_counter % CHECKPOINT_COUNTER == 0:
+			self.save_checkpoint()

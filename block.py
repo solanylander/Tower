@@ -1,63 +1,18 @@
 import math, random, sys, pygame
 from pygame.locals import *
+from objects import Object
 
 # Object within the world the agent may collide with
-class Block:
+class Block(Object):
 
-	# Rotate image (Only works for square images)
-	def rotImage(self, image, angle):
-	    rect = image.get_rect()
-	    rotatedImage = pygame.transform.rotate(image, angle)
-	    rect.center = rotatedImage.get_rect().center
-	    rotatedImage = rotatedImage.subsurface(rect).copy()
-	    return rotatedImage
 
 	# Initialise an object
-	def __init__(self, rotate, x, y):
-		self.rotate = rotate
-		self.position = (x, y)
+	def __init__(self, rotation, xy):
+		Object.__init__(self, rotation, xy)
 
-	# Load an objects image and save it
-	def loadImage(self, image):
-		# Image unrotated. Saves the program having to repeated call the file the image is saved in
-		self.imageLoad = pygame.image.load(image).convert_alpha()
-		# Rotate the image and take its mask (Used to calculate collisions)
-		self.image = self.rotImage(self.imageLoad, self.rotate)
-		self.mask = pygame.mask.from_surface(self.image)
-
-	# Get objects position
-	def getPosition(self):
-		return self.position
-
-	# Get objects position
-	def setPosition(self, position):
-		self.position = position
 
 	# Rotate the object by the value of amount
-	def rotation(self, amount):
-		# Rotate the and get the image mask
-		self.rotate = (self.rotate + amount) % 360
-		self.image = self.rotImage(self.imageLoad, self.rotate)
-		self.mask = pygame.mask.from_surface(self.image)
-
-	# Rotate the object by the value of amount
-	def setRotation(self, amount):
-		# Rotate the and get the image mask
-		self.rotate = amount % 360
-		self.image = self.rotImage(self.imageLoad, self.rotate)
-		self.mask = pygame.mask.from_surface(self.image)
-
-	# Get the objects rotation
-	def getRotation(self):
-		return self.rotate
-
-	def moveBlock(self, x, y):
-		self.position = (self.position[0] + x, self.position[1] + y)
-
-	# Get the objects image rotated
-	def getImage(self):
-		return self.image
-
-	# Get the objects mask
-	def getMask(self):
-		return self.mask
+	def rotate(self, amount):
+		# Rotate the block and get the new image mask
+		self.rotation = (self.rotation + amount) % 360
+		self.rotImage(self.image_load, self.rotation)

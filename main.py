@@ -3,8 +3,7 @@ from pygame.locals import *
 from agent import Agent
 from part import Part
 from block import Block
-from policy_network import Network
-from network import random_network
+from network import Network
 from random import *
 
 
@@ -27,10 +26,7 @@ AREA = W * H
 # define some colors
 BLUE = (0, 153, 255, 221)
 
-network = Network(args.hidden_layer_size, args.learning_rate, checkpoints_dir='checkpoints')
-network.load_checkpoint()
-random_agent = random_network()
-random_agent.initialiseNetwork()
+network = Network(args.load_checkpoint)
 # Place window in the center of the screen
 os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (150,80)
 # initialise display
@@ -47,15 +43,14 @@ pointers = [None, None, None]
 pointers[0] = pygame.image.load("image_resources/pointer.png").convert_alpha()
 pointers[1] = pygame.image.load("image_resources/pointerTwo.png").convert_alpha()
 
-success_rate = 0
 block_distance = 300
 
 blocks, agents = [],[]
 # Adds agents into the world
-blocks.append(Block(0, 0, 400))
+blocks.append(Block(0, (0, 400)))
 blocks[0].loadImage("image_resources/flat_floor.png")
 
-goal = Block(0, 0, 400)
+goal = Block(0, (0, 400))
 goal.loadImage("image_resources/goal.png")
 
 block_move_u, block_move_r = 0,0
@@ -78,9 +73,9 @@ target_counters = [2,3,-1]
 
 
 
-blocks.append(Block(0, block_distance, 150))
+blocks.append(Block(0, (block_distance, 150)))
 blocks[1].loadImage("image_resources/wall.png")
-agents.append(Agent((390,200), args, blocks[1], network, 0, goal, success_rate, 25))
+agents.append(Agent((390,200), blocks[1], network, 0, goal, 25))
 print("Target: Wall")
 # Tell all agents about the objects within the world so they can detect collisions
 for i in range(len(agents)):
@@ -90,7 +85,6 @@ for i in range(len(agents)):
 
 
 timer = duration
-epTimer = 0
 counter = 0
 show = False
 reset = False
@@ -98,7 +92,6 @@ pause = False
 resetCounter = 0
 nextRound = False
 agent_number = 0
-finished = 0
 
 
 blocks[1].setRotation(randint(-10,10))
@@ -122,7 +115,7 @@ for i in range(len(agents)):
 		agents[i].addObject((blocks[j].getMask(), blocks[j].getPosition()[0], blocks[j].getPosition()[1]))
 
 
-focus = Block(0, 800, 150)
+focus = Block(0, (800, 150))
 focus.loadImage("image_resources/pointer.png")
 won = 0
 lost = 0
@@ -192,10 +185,10 @@ while True:
 
 		wall_height = blocks[1].getPosition()[1] + block_move_u
 		if wall_height > 0 and wall_height < 300:
-			blocks[1].moveBlock(0, block_move_u)
+			blocks[1].move((0, block_move_u))
 		rotation = blocks[1].getRotation() + block_move_r
 		if rotation < 15 or rotation > 345:
-			blocks[1].rotation(block_move_r)
+			blocks[1].rotate(block_move_r)
 
 
 
@@ -207,7 +200,6 @@ while True:
 
 
 			if nextRound:
-				epTimer = 0
 				nextRound = False
 				timer = duration
 				counter = counter + 1
@@ -222,19 +214,16 @@ while True:
 				reset = False
 			else:
 				timer = timer - 1
-				epTimer += 1
-				#if timer == 333 or timer == 666:
-				#	agents[0].randomAgent.nextGame()
 
 
 			# Control specific agents
-			agents[agent_number].move(show, finished)#:
+			agents[agent_number].move()
 
 
 
 			if timer < 0:
 				timer = duration
-				agents[agent_number].randomize(int(epTimer/400))
+				agents[agent_number].next()
 
 			#	if agents[agent_number].button and counter % 20 > 1:
 			#		counter = counter - 1
@@ -247,14 +236,13 @@ while True:
 				DS.blit(blocks[i].getImage(), blocks[i].getPosition())
 			# Draw agents
 			for i in range(len(agents)):
-				markers = agents[i].getMarkers()
+				markers = agents[i].getBox()
 				for j in range(len(markers)):
 					DS.blit(pointers[0], (int(markers[j][0]), int(markers[j][1])))
 				if lock:
 					DS.blit(goal.getImage(), goal.getPosition())
 					agents[i].parts.run(DS)
-				#	DS.blit(agents[i].sensor.getImage(), agents[i].sensor.getPosition(True))
-				#	DS.blit(agents[i].sensor.getImage(), agents[i].sensor.getPosition(False))
+					agents[i].sensors.run(DS)
 				# Pointer for agents center of gravity
 				cog = agents[i].cog
 				DS.blit(pointers[0], (int(cog[0]), int(cog[1])))
@@ -262,9 +250,6 @@ while True:
 			pygame.display.update()
 			CLOCK.tick(FPS)
 
-
-
-		finished = 0
 
 		if agents[agent_number].restart:
 
@@ -278,8 +263,7 @@ while True:
 			if len(network.batch_state_action_reward_tuples) > 50000:
 				episode_num += 1
 				print("Episode Num:", episode_num)
-				success_rate = (won / (won + lost))
-				network.update_learn_rate(success_rate)
+				#network.update_learn_rate(success_rate)
 				network.finishEpisode()
 				won = 0
 				lost = 0
@@ -296,7 +280,7 @@ while True:
 			ag_num += 1
 			agents = []
 			training = (randint(0,100) < 80)
-			agents.append(Agent((390,200), args, blocks[1], network, ag_num, goal, success_rate, 25))
+			agents.append(Agent((390,200), blocks[1], network, ag_num, goal, 25))
 			target_counters = [2,3,-1]
 			#lock = False
 
@@ -320,44 +304,13 @@ while True:
 			print("Wall Rotation: ", blocks[1].getRotation())
 			for j in range(len(blocks)):
 				agents[agent_number].addObject((blocks[j].getMask(), blocks[j].getPosition()[0], blocks[j].getPosition()[1]))
-
-		if agents[agent_number].stop == 1:
-
-			if agent_number > 0:
-				diff_cog = cog_threshold - 100 - agents[agent_number].cog[0]
-
-			if agents[agent_number].cog[0] < cog_threshold:
-				cog_threshold = agents[agent_number].cog[0]
-
-			print("Last Agents Cog:", last_cog)
-			print("Cog Diff:", diff_cog)
-
-
-
-
-
-
-			print("COG boundary:", boundary)
-			back_rotation = (agents[agent_number].array[0].getRotation() - 40) % 360
-			print("Back rotation:", back_rotation)
-			front_rotation = (agents[agent_number].array[1].getRotation() + 10) % 360
-			print("Front rotation:", front_rotation)
-
-
-
-			if last_cog < boundary or diff_cog > 100 or back_rotation > 12 or front_rotation > 20: 
-				finished = 1
-			else:
-				finished = 2
-
-		elif agents[agent_number].stop == 2:
+		
+		if agents[agent_number].stop == 2:
 
 			print(agents[agent_number].episode_reward_sum)
 
 			last_cog = 400 - agents[agent_number].cog[1]
 
-
-			epTimer = 0
 
 			agent_number += 1
 
@@ -377,14 +330,14 @@ while True:
 
 
 			if (wall_corner - last_cog) < 30:
-				agents.append(Agent((400 - (agent_number * 80),200), args, focus, network, agent_number, goal, success_rate, boundary))
+				agents.append(Agent((400 - (agent_number * 80),200), focus, network, agent_number, goal, boundary))
 				print("Target: Focus")
 			elif agent_number == target_counters[0]:
-				agents.append(Agent((400 - (agent_number * 80),200), args, blocks[1], network, agent_number, goal, success_rate, boundary))
+				agents.append(Agent((400 - (agent_number * 80),200), blocks[1], network, agent_number, goal, boundary))
 				target_counters = [target_counters[0] + target_counters[1], target_counters[1] + 1, target_counters[2] - 1]
 				print("Target: Wall")
 			else:
-				agents.append(Agent((400 - (agent_number * 80),200), args, agents[agent_number + target_counters[2]].parts.parts[0], network, agent_number, goal, success_rate, boundary))
+				agents.append(Agent((400 - (agent_number * 80),200), agents[agent_number + target_counters[2]].parts.parts[0], network, agent_number, goal, boundary))
 				print("Target:", agent_number + target_counters[2])
 
 
