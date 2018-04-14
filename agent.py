@@ -11,20 +11,28 @@ import numpy as np
 
 class Agent:
 
-	def __init__(self, xy, target, network, agent_num, goal, boundary):
+	def __init__(self, xy, target, networks, agent_num, goal, boundary, training, randomness, subsumption):
+		print("Sub",subsumption, "Randomness",randomness)
 		print("Agent Num:", agent_num)
 		# store initial parameters
 		self.agent_num = agent_num
 		self.boundary = boundary
-		self.network = network
+		self.networks = networks
 		self.target = target
 		self.goal = goal
+
+		self.training = training
+		self.randomness = randomness
+		self.subsumption = subsumption
+
+		self.finished = False
 
 		# Initialize variables
 		self.stop = 0
 		self.restart = False	
 		self.colliding = []
 		self.objects = []
+		self.agents = []
 		self.batch_state_action_reward_tuples = []
 		self.networkInput = []
 		self.box = [(-1,-1), (-1,-1), (-1,-1), (-1,-1)]
@@ -33,17 +41,21 @@ class Agent:
 		self.won = False
 		self.interactive_dist = 0
 		self.turn = 0
+		self.start_reached = False
+		if self.networks.get_turn() < 2:
+			self.start_reached = True
 
 		self.next()
 
 		# Initialise agents parts and backup
-		self.parts = Parts(False, xy)
-		self.backup = Parts(True, None)	
+		self.parts = Parts(False, xy, self.networks.get_turn())
+		self.backup = Parts(True, None, 0)	
 		self.parts.load_pair(self.backup)
 		self.backup.load_pair(self.parts)
 		self.array = self.parts.array
 		self.cog = self.parts.centerOfGravity(xy)
 		self.score_tracker = self.cog[0]
+		self.last_score = 0.5
 
 
 		# Initialise agents sensors
@@ -51,6 +63,7 @@ class Agent:
 		self.sensors.setPositions(self.array[0].getPivot(), self.array[2].getPivot())
 
 	def next(self):
+		self.timer = 400
 		if not (self.turn == 0):
 			parts = self.array
 			score = self.cog[0] - self.score_tracker
@@ -58,7 +71,13 @@ class Agent:
 				percent = 1
 			else:
 				percent = (self.interactive_dist / score)
+			self.last_score = self.interactive_dist
 			print("Step:", self.turn, "Score:", score, self.interactive_dist)
+			if self.last_score <= 0:
+				if ((self.networkInput[7] > 0.5 or self.networkInput[8] > 0.5) and self.networkInput[2] < 0.01):
+					self.finished = 1
+				else:
+					self.finished = -1
 			self.score_tracker = self.cog[0]
 			self.interactive_dist = 0
 		self.turn += 1
@@ -67,13 +86,22 @@ class Agent:
 
 	# Handles movement calculations
 	def move(self):
+		self.round_tuples = []
+		if self.start_reached:
+			self.timer -= 1
+			if self.timer == 0:
+				self.next()
 		parts = self.array
 		# Reset variables
 		pivot = self.array[0].getPosition()
 		self.moves = []
 		# Update the position of the sensors and then check their value
 		self.sensors.setPositions(self.array[0].getPivot(), self.array[2].getPivot())
-		self.sensors.collisions(self.objects, self.target)
+		self.sensors.collisions(self.objects, self.agents, self.target)
+		self.networkInput = self.parts.inputs(pivot, self.sensors.sensor_values, self.sensors.target)
+		if not self.start_reached:
+			if self.sensors.sensor_values[0] > 0.1 or self.sensors.sensor_values[1] > 0.1:
+				self.start_reached = True
 		# Gravity
 		pivot = self.gravity(pivot, 30)
 		# Move the agents body then legs
@@ -98,37 +126,37 @@ class Agent:
 			if extra != 0:
 				pivot = self.gravity(pivot, (extra) * 10)
 
+		
+
 
 
 	# Updates the network and checks to see if the run has ended
-	def updateNetwork(self, move, partNum):
-		array = self.array
-		reward = 0
-		# If the agent reaches the goal the agent wins the round
-		if partNum == 14:
-			offset = (int(array[2].getPosition()[0] - self.goal.getPosition()[0]), int(array[2].getPosition()[1] - self.goal.getPosition()[1]))
-			result = self.goal.getMask().overlap(array[2].getMask(), offset)
-			if result:
-				reward = 1.00
+	def updateNetwork(self, move, partNum, turn):
+		if self.start_reached:
+			array = self.array
+			reward = 0
+			# If the agent reaches the goal the agent wins the round
+			if turn == 3:
+				reward, self.restart = self.parts.rewards(self.networkInput, self.moves, self.last_score, self.turn)
 
-		# Set the output to match the move
-		output = [0,0,0]
-		output[move] = 1
+				# Set the output to match the move
+				for i in range(7):
+					output = [0,0,0]
+					output[self.moves[i]] = 1
+					# Add result to the set of tuples that will train the network
+					tup = (self.networkInput, output, reward)
+					self.networks.append_tuple(tup, i)
 
-		# Add result to the set of tuples that will train the network
-		tup = None
-		if ((partNum - 3) % 6) < 3:
-			tup = (self.networkInput_top, output, reward)
-		else:
-			tup = (self.networkInput, output, reward)
-		self.network.batch_state_action_reward_tuples.append(tup)
 
-		# If the agent succeeds/fails print log
-		if reward < 0:
-			print("Training Step %d; Score: %0.3f, Reward: %0.3f,  lost..." % (self.training_step, score, reward))
-		elif reward > 0:
-			print("Training Step %d: Score: %0.3f, Reward: %0.3f, won!" % (self.training_step, score, reward))
-
+			# If the agent succeeds/fails print log
+			if self.restart:
+				if reward < 0:
+					print("Reward: %0.3f,  lost..." % (reward))
+				elif reward > 0:
+					print("Reward: %0.3f, won!" % (reward))
+					self.won = True
+					self.next()
+					self.last_score = 0.5
 
 	# When the agents center of gravity is not between 2 points of contact with the environment
 	# then it should fall over
@@ -207,21 +235,22 @@ class Agent:
 	# Handles Collisions between the ant and the world
 	def collide(self):
 		array = self.array
-		objects = self.objects
+		objects = [self.objects, self.agents]
 		self.colliding = []
 		ret = False
-		# Check for collisions for every part of the agent
-		for position in range(0,15):
-			# Check collisions against all the other objects in the world which exclude itself
-			for k in range(len(objects)):
-				# Find the position difference between the agent part and the external object
-				offset = (int(objects[k][1] - array[position].getPosition()[0]), int(objects[k][2] - array[position].getPosition()[1]))
-				result = array[position].getMask().overlap(objects[k][0], offset)
-				# If there is a collision add it to the collision list
-				if result:
-					self.collisionBox((array[position].getPosition()[0] + result[0], array[position].getPosition()[1] + result[1]))
-					self.colliding.append((array[position].getPosition()[0] + result[0], array[position].getPosition()[1] + result[1]))
-					ret = True
+		for z in range(2):
+			# Check for collisions for every part of the agent
+			for position in range(0,15):
+				# Check collisions against all the other objects in the world which exclude itself
+				for k in range(len(objects[z])):
+					# Find the position difference between the agent part and the external object
+					offset = (int(objects[z][k][1] - array[position].getPosition()[0]), int(objects[z][k][2] - array[position].getPosition()[1]))
+					result = array[position].getMask().overlap(objects[z][k][0], offset)
+					# If there is a collision add it to the collision list
+					if result:
+						self.collisionBox((array[position].getPosition()[0] + result[0], array[position].getPosition()[1] + result[1]))
+						self.colliding.append((array[position].getPosition()[0] + result[0], array[position].getPosition()[1] + result[1]))
+						ret = True
 
 		return ret
 
@@ -233,7 +262,7 @@ class Agent:
 	def addOtherAgent(self, agent):
 		for j in range(0,3):
 			part = agent.parts.array[j]
-			self.objects.append((part.getMask(), part.getPosition()[0], part.getPosition()[1]))
+			self.agents.append((part.getMask(), part.getPosition()[0], part.getPosition()[1]))
 
 
 	# Creates a parallelogram around the agent with the corners being the collision points with the highest and lowest x and y values
@@ -258,21 +287,21 @@ class Agent:
 
 	# Choose a move depending on the probabilities given by the neural network
 	def getMove(self, probabilities, banned):
-		probability_addition = probabilities[0] + probabilities[1] + probabilities[2]
+		highest = 0
+		for i in range(1,3):
+			if probabilities[i] > probabilities[highest]:
+				highest = i
 
 		move = 0
+		move = highest
+		# 90% chance of best move otherwise pick a random move
 		while True:
-			probability_random = random.uniform(0, probability_addition)
-			# If random is less than the probability of 0 choose 0
-			if probability_random < probabilities[0]:
-				move = 0
-			# Elif random is less the probability of 0 + 1 choose 1
-			elif probability_random < probabilities[0] + probabilities[1]:
-				move = 1
-			# Else choose move 2
+			probability_random = random.uniform(0, 100)
+			if probability_random >= self.randomness:
+				move = highest
 			else:
-				move = 2
-			# If the move is banned pick another one
+				move = randint(0, 2)
+
 			if not(move == banned):
 				break
 		# Return the chosen move
@@ -287,14 +316,26 @@ class Agent:
 		for i in range(0,2):
 			cog = self.cog[0]
 			# Get the inputs for the top part of the legs then the bottom part
-			self.networkInput_top = self.parts.inputs(pivot, i * 2, self.sensors.sensor_values, self.sensors.target)
-			self.networkInput = self.parts.inputs(pivot, (i * 2) + 1, self.sensors.sensor_values, self.sensors.target)
 			# Get the probabilities for each move
-			probabilities_top = self.network.forward_pass(self.networkInput_top)[0]
-			probabilities_bottom = self.network.forward_pass(self.networkInput)[0]
+			probabilities_top = self.networks.forward_pass(self.networkInput, (i * 2))
+			probabilities_bottom = self.networks.forward_pass(self.networkInput, (i * 2) + 1)
 			# Pick a move based of the networks probabilities
 			move_top = self.getMove(probabilities_top, -1)
 			move_bottom = self.getMove(probabilities_bottom, -1)
+
+
+			if not self.start_reached or self.subsumption:
+				if randint(0, 100) >= self.randomness:
+					move_top = self.presetMove(i)
+				else:
+					move_top = randint(0,2)
+				if randint(0, 100) >= self.randomness:
+					move_bottom = self.presetMove(i)
+				else:
+					move_bottom = randint(0,2)
+
+
+
 			# Rotate the bottom by the same amount as the top + its own values
 			rotation_amount_top = move_top - 1
 			rotation_amount_bottom = move_bottom - 1 + rotation_amount_top
@@ -355,8 +396,9 @@ class Agent:
 								pivot = self.gravity(pivot, 10)
 
 			# Send the agents move information to the network
-			self.updateNetwork(move_top, partNum)
-			self.updateNetwork(move_bottom, partNum + 3)
+			if self.training:
+				self.updateNetwork(move_top, partNum, (i * 2))
+				self.updateNetwork(move_bottom, partNum + 3, (i * 2) + 1)
 		self.prevMoves = prevMoves
 		return pivot
 
@@ -371,13 +413,26 @@ class Agent:
 			partNum = i - 4
 			move = None
 			# Get the networks input data and then get the probabilities from the network
-			self.networkInput = self.parts.inputs(pivot, i, self.sensors.sensor_values, self.sensors.target)
-			probabilities = self.network.forward_pass(self.networkInput)[0]
+			probabilities = self.networks.forward_pass(self.networkInput, i)
 			# The middle part of the agent cannot rotate in the same direction as the back since they share the same pivot
 			if i == 5:
 				move = self.getMove(probabilities, banned_move)
 			else:
 				move = self.getMove(probabilities, -1)
+
+
+
+
+			if not self.start_reached or self.subsumption:
+				if randint(0, 100) >= self.randomness:
+					move = self.presetMove(i)
+				else:
+					move = randint(0,2)
+
+
+
+
+
 
 			# Rotation amount  -1-anticlockwise 0-stationary 1-clockwise
 			self.moves.append(move)
@@ -433,5 +488,55 @@ class Agent:
 			if resetGravity is not 0:
 				pivot = self.gravity(pivot, resetGravity)
 			# Send the agents move information to the network
-			self.updateNetwork(move, partNum)
+			if self.training:
+				self.updateNetwork(move, partNum, i)
 		return pivot
+
+	def presetMove(self, i):
+		move = 0
+		if i < 4:
+			if (self.networkInput[7] > 0.5 or self.networkInput[8] > 0.5) and self.networkInput[2] < 0.01:
+				move = 1
+		else:
+			move = 1
+			if i == 4:
+				if self.networkInput[7] > 0.5 or self.networkInput[8] > 0.5:
+					if self.networkInput[9] == 1:
+						if self.networkInput[0] < 0.62:
+							move = 2
+						elif self.networkInput[0] > 0.65:
+							move = 0
+				else:	
+					if self.networkInput[1] > 0.51:
+						move = 2
+					elif self.networkInput[1] < 0.49:
+						move = 0
+			elif i == 5:
+				if self.networkInput[8] == 0 and self.networkInput[7] > 0.2:
+						if self.networkInput[1] > 0.43:
+							move = 0
+						elif self.networkInput[1] < 0.37:
+							move = 2
+				elif self.networkInput[7] > 0.5 or self.networkInput[8] > 0.5:
+					if self.networkInput[9] == 1:
+						if self.networkInput[0] >= 0.62 and self.networkInput[0] <= 0.65:
+							if self.networkInput[1] < 0.24:
+								move = 2
+							elif self.networkInput[1] > 0.30:
+								move = 0
+					else:
+						if self.networkInput[1] < 0.76:
+							move = 2
+						elif self.networkInput[1] > 0.70:
+							move = 0
+			elif i == 6:
+				if (self.networkInput[7] > 0.5 or self.networkInput[8] > 0.5) and self.networkInput[9] == 1:
+					if self.networkInput[0] >= 0.62 and self.networkInput[0] <= 0.65:
+						move = 0
+				else:
+					if self.networkInput[2] > 0.51:
+						move = 0
+					elif self.networkInput[2] < 0.49:
+						move = 2
+		return move
+

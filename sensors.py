@@ -31,7 +31,7 @@ class Sensors:
 
 
 	# Update the sensors information
-	def collisions(self, environment, objective):
+	def collisions(self, environment, agents, objective):
 		# Reset sensor values
 		self.target = False
 		self.sensor_values = [0,0]
@@ -44,20 +44,30 @@ class Sensors:
 			part_pos = (environment[i][1], environment[i][2])
 			# Check for each sensor
 			for j in range(2):
-				self.collisionCheck(part_pos, mask, j)
+				if not self.target and objective == -1:
+					self.target = self.collisionCheck(part_pos, mask, j)
+				else:
+					self.collisionCheck(part_pos, mask, j)
+		# Check to see if either sensor can see any of the objects within the environment
+		# Including other agents
+		for i in range(len(agents)):
 
-		# Check to see if the sensor can see the agents target. If it can set target to True and update sensor values
-		for k in range(2):
-			if not self.target:
-				self.target = self.collisionCheck(objective.position, objective.mask, k)
+			mask = agents[i][0]
+			part_pos = (agents[i][1], agents[i][2])
+			# Check for each sensor
+			for j in range(2):
+				if not self.target and objective == int(i / 3):
+					self.target = self.collisionCheck(part_pos, mask, k)
+				else:
+					self.collisionCheck(part_pos, mask, j)
 
 
 
 
 	# Check if a sensor is colliding with an object
-	def collisionCheck(self, position, mask, sensor):
+	def collisionCheck(self, position, mask, sensor_num):
 		# Get the position of the sensor
-		sensor = self.sensor_array[sensor]
+		sensor = self.sensor_array[sensor_num]
 		# Find the distance between a sensors position and the object
 		x = int(position[0] - sensor.position[0])
 		y = int(position[1] - sensor.position[1])
@@ -66,10 +76,11 @@ class Sensors:
 		# Find amount of overlap between sensor and the object
 		result = sensor.mask.overlap(mask, offset)
 		if result:
+			value = 1 - ((result[0] + 1) / 70)
 			# If the new object is closer than all previous objects update the values
-			if result[0] >= self.sensor_values[sensor]:
+			if value >= self.sensor_values[sensor_num]:
 				# The closer the sensor is the greater the value ranging between 0 and 1
-				self.sensor_values[sensor] = 1 - ((result[0] + 1) / 70)
+				self.sensor_values[sensor_num] = value
 				return True
 		return False
 

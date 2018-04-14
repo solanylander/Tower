@@ -6,8 +6,12 @@ from random import *
 # Groups together all the individual parts for one agent
 class Parts:
 	# Initialize class
-	def __init__(self, backup, position):
+	def __init__(self, backup, position, step):
 		self.array = []
+		self.training_step = step + 1
+		self.init = False
+		self.given = False
+		self.net = []
 		# If this is an agents backup store default values for all parts
 		if backup:
 			for k in range(0,15):
@@ -17,9 +21,14 @@ class Parts:
 			# Initialise the body and head of the agent
 			random = randint(-30, 30)
 			# The back of the agent is the heaviest so that it does ot topple forwards
-			self.array.append(Part(random + randint(-89,89), 50, 23.44, position))
-			self.array.append(Part(random, 50, 11.72))
-			self.array.append(Part(random + randint(-89,89), 50, 8.24))
+			if self.training_step == 1:
+				self.array.append(Part(random + randint(-89,89), 50, 23.44, position))
+				self.array.append(Part(random, 50, 11.72))
+				self.array.append(Part(random + randint(-89,89), 50, 8.24))
+			else:
+				self.array.append(Part(0, 50, 23.44, position))
+				self.array.append(Part(0, 50, 11.72))
+				self.array.append(Part(0, 50, 8.24))
 			# Load the head and bodies image files
 			self.array[0].loadImage("image_resources/body.png")
 			self.array[1].loadImage("image_resources/body.png")
@@ -195,7 +204,7 @@ class Parts:
 
 
 	# Set the inputs for the agents neural network
-	def inputs(self, pivot, turn, sensors, target):
+	def inputs(self, pivot, sensors, target):
 		array = self.array
 		# Array of input values to be returned
 		net_inputs = []
@@ -203,9 +212,17 @@ class Parts:
 		# By adding 180 it means the point at which the value change from 0 to 1 is in a less used location
 		net_inputs.append(((180 + array[0].getRotation()) % 360) / 360.0)
 		# The difference between the agent back and middle segments
-		second_rotation = (array[1].getRotation() - array[0].getRotation() + 90) % 181
+		second_rotation = (array[1].getRotation() - array[0].getRotation() + 90)
+		if abs(second_rotation) == 180:
+			second_rotation = 1
+		else:
+			second_rotation = second_rotation % 180
 		# The difference between the agent middle and head segments
-		third_rotation = (array[2].getRotation() - array[1].getRotation() + 90) % 181
+		third_rotation = (array[2].getRotation() - array[1].getRotation() + 90) % 180
+		if abs(third_rotation) == 180:
+			third_rotation = 1
+		else:
+			third_rotation = third_rotation % 180
 
 		# Scale between 0 and 1
 		net_inputs.append(second_rotation / 180.0)
@@ -237,15 +254,47 @@ class Parts:
 		else:
 			net_inputs.append(0)
 
-		# Which part the agent is attempting to move
-		# 0-Back 1-Middle 2-Head 3-Front Legs(Top) 4-Front Legs(Bot) 5-Back Legs(Top) 6-Back Legs(Bot)
-		for j in range(7):
-			if j == turn:
-				net_inputs.append(1)
-			else:
-				net_inputs.append(0)
+		if self.init < 3:
+			self.init += 1
+			self.net.append(net_inputs)
 
 		return net_inputs
 
-	def rewards(self, inputs):
-		
+	def rewards(self, inputs, moves, last_score, turn):
+		rotations = [abs(inputs[1] - 0.5), abs(inputs[2] - 0.5)]
+		if self.training_step == 1:
+			if rotations[0] < 0.1 and rotations[1] < 0.1:
+				return 1.00, True
+			elif rotations[0] == 0.5 or rotations[1] == 0.5 or turn > 3:
+				return -1.00, True
+		elif self.training_step == 2:
+			if rotations[0] > 0.1 or rotations[1] > 0.1 or last_score <= 0 or turn > 5:
+				return -1.00, True
+			elif last_score > 20:
+				return 1.00, True
+		elif self.training_step == 3:
+			if inputs[7] >= 0.65 or inputs[8] >= 0.65:
+				if inputs[0] >= 0.62 and inputs[0] <= 0.65:
+					if inputs[1] >= 0.24 and inputs[1] <= 0.40:
+						if inputs[2] == 0:
+							return 1.00, True
+			if (inputs[7] == 0 and inputs[8] == 0) or turn == 5 or last_score <= 0:
+				return -1.00, True
+		elif self.training_step == 4:
+			if not self.given and self.array[0].getPosition()[0] > 600:
+				self.given = True
+				return 1.00, False
+			if (inputs[7] == 0 and inputs[8] == 0):
+				if self.array[0].getPosition()[0] > 600:
+					return 1.00, True
+				else:
+					return -1.00, True
+			if turn == 11 or last_score <= 0:
+				return -1.00, True
+
+		return 0.00, False
+
+	def setRotations(self, rotations):
+		for i in range(0,len(rotations)):
+			self.array[i].setRotation(rotations[i])
+		self.setPositions(self.array[0].getPosition())

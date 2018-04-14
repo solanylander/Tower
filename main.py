@@ -3,347 +3,339 @@ from pygame.locals import *
 from agent import Agent
 from part import Part
 from block import Block
-from network import Network
+from network_collection import NetworkCollection
+from tab import Tab
+from options import Options
+from log import Log
 from random import *
 
+class Main():
 
-parser = argparse.ArgumentParser()
-parser.add_argument('--hidden_layer_size', type=int, default=200)
-parser.add_argument('--learning_rate', type=float, default=0.01)
-parser.add_argument('--batch_size_episodes', type=int, default=1)
-parser.add_argument('--checkpoint_every_n_episodes', type=int, default=2)
-parser.add_argument('--load_checkpoint', action='store_true')
-parser.add_argument('--discount_factor', type=int, default=0.9998)
-args = parser.parse_args()
-
-
-# define display surface			
-W, H = 1080, 600
-episode_num = 13
-HW, HH = W / 2, H / 2
-AREA = W * H
-
-# define some colors
-BLUE = (0, 153, 255, 221)
-
-network = Network(args.load_checkpoint)
-# Place window in the center of the screen
-os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (150,80)
-# initialise display
-pygame.init()
-CLOCK = pygame.time.Clock()
-DS = pygame.display.set_mode((W, H))
-pygame.display.set_caption("Ant Tower Project")
-FPS = 120
-trainingNum = 20000
-duration = 400
-switch = True
-# Get the image resources for the world
-pointers = [None, None, None]
-pointers[0] = pygame.image.load("image_resources/pointer.png").convert_alpha()
-pointers[1] = pygame.image.load("image_resources/pointerTwo.png").convert_alpha()
-
-block_distance = 300
-
-blocks, agents = [],[]
-# Adds agents into the world
-blocks.append(Block(0, (0, 400)))
-blocks[0].loadImage("image_resources/flat_floor.png")
-
-goal = Block(0, (0, 400))
-goal.loadImage("image_resources/goal.png")
-
-block_move_u, block_move_r = 0,0
-wall_height = 350
-lock = False
-angle = 0
-ag_num = 0
-done = False
-last_cog = 0
-diff_cog = 0
-cog_threshold = 800
-
-# wall pos, next wall, decrement
-target_counters = [2,3,-1]
-
-
-
-
-
-
-
-
-blocks.append(Block(0, (block_distance, 150)))
-blocks[1].loadImage("image_resources/wall.png")
-agents.append(Agent((390,200), blocks[1], network, 0, goal, 25))
-print("Target: Wall")
-# Tell all agents about the objects within the world so they can detect collisions
-for i in range(len(agents)):
-	for j in range(len(agents)):
-		if i is not j:
-			agents[i].addOtherAgent(agents[j])
-
-
-timer = duration
-counter = 0
-show = False
-reset = False
-pause = False
-resetCounter = 0
-nextRound = False
-agent_number = 0
-
-
-blocks[1].setRotation(randint(-10,10))
-blocks[1].setPosition((block_distance, randint(50,150)))
-lock = True
-wall_rotation = (-math.sin(blocks[1].getRotation() * math.pi / 180) * 300, -math.cos(blocks[1].getRotation() * math.pi / 180)* 300)
-wall_rotation_increased = (-math.sin(blocks[1].getRotation() * math.pi / 180) * 320, -math.cos(blocks[1].getRotation() * math.pi / 180)* 320)
-wall_position = blocks[1].getPosition()
-corner_pos = (-math.cos(blocks[1].getRotation() * math.pi / 180) * 100, math.sin(blocks[1].getRotation() * math.pi / 180)* 100)
-goal_xy = (wall_rotation_increased[0] + wall_position[0] + 488, wall_rotation_increased[1] + wall_position[1] + 488)
-corner_xy = (wall_rotation[0] + wall_position[0] + 500 + corner_pos[0], wall_rotation[1] + wall_position[1] + 500 + corner_pos[1])
-wall_corner = 400 - corner_xy[1]
-print("Wall Height: ", wall_corner)
-print("Wall Rotation: ", blocks[1].getRotation())
-goal.setPosition(goal_xy)
-
-block_move_u = 0
-block_move_r = 0
-for i in range(len(agents)):
-	for j in range(len(blocks)):
-		agents[i].addObject((blocks[j].getMask(), blocks[j].getPosition()[0], blocks[j].getPosition()[1]))
-
-
-focus = Block(0, (800, 150))
-focus.loadImage("image_resources/pointer.png")
-won = 0
-lost = 0
-# main loop
-while True:
-	# Key Listeners for movement and quitting
-	for event in pygame.event.get():
-		if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
-			pygame.quit()
-			sys.exit()
-		if event.type == KEYDOWN:
-			if event.key == K_q:
-				counter = trainingNum - 1
-			elif event.key == K_r:
-				switch = not switch
-			elif event.key == K_p:
-				pause = not pause
-			elif event.key == K_s:
-				counter = counter - 1
-				timer = -1
-			elif event.key == K_v:
-				show = 2
-			elif event.key == K_b:
-				show = 1
-			elif event.key == K_n:
-				pause = False
-				show = 0
-			elif event.key == K_m:
-				pause = True
-				show = 0
-				print("stop")
-
-			if not lock:
-				if event.key == K_UP:
-					block_move_u -= 1
-				elif event.key == K_DOWN:
-					block_move_u += 1
-				elif event.key == K_LEFT:
-					block_move_r += 1
-				elif event.key == K_RIGHT:
-					block_move_r -= 1
-				elif event.key == K_RETURN:
-					lock = True
-					wall_rotation = (-math.sin(blocks[1].getRotation() * math.pi / 180) * 312, -math.cos(blocks[1].getRotation() * math.pi / 180)* 312)
-					wall_position = blocks[1].getPosition()
-					#corner_pos = (-math.cos(blocks[1].getRotation() * math.pi / 180) * 100, -math.sin(blocks[1].getRotation() * math.pi / 180)* 100)
-					goal_xy = (wall_rotation[0] + wall_position[0] + 488, wall_rotation[1] + wall_position[1] + 488)
-					goal.setPosition(goal_xy)
-
-					block_move_u = 0
-					block_move_r = 0
-					for i in range(len(agents)):
-						for j in range(len(blocks)):
-							agents[i].addObject((blocks[j].getMask(), blocks[j].getPosition()[0], blocks[j].getPosition()[1]))
-
-		elif event.type == KEYUP:
-			if not lock:
-				if event.key == K_UP:
-					block_move_u += 1
-				elif event.key == K_DOWN:
-					block_move_u -= 1
-				elif event.key == K_LEFT:
-					block_move_r -= 1
-				elif event.key == K_RIGHT:
-					block_move_r += 1
-	if not pause:
-
-		wall_height = blocks[1].getPosition()[1] + block_move_u
-		if wall_height > 0 and wall_height < 300:
-			blocks[1].move((0, block_move_u))
-		rotation = blocks[1].getRotation() + block_move_r
-		if rotation < 15 or rotation > 345:
-			blocks[1].rotate(block_move_r)
-
-
-
-
-
-
-
-		if lock:
-
-
-			if nextRound:
-				nextRound = False
-				timer = duration
-				counter = counter + 1
-				for k in range(len(agents)):
-					if counter % 20 == 0 and not reset:#and agents[0].won > 0:
-						agents[0].finishEpisode()
-					score = agents[k].getCog()[0]
-					agents[k].reset(counter < trainingNum, score)
-					agents[k].randomAgent.nextGame()
-				prev = counter
-				print("----")
-				reset = False
-			else:
-				timer = timer - 1
-
-
-			# Control specific agents
-			agents[agent_number].move()
-
-
-
-			if timer < 0:
-				timer = duration
-				agents[agent_number].next()
-
-			#	if agents[agent_number].button and counter % 20 > 1:
-			#		counter = counter - 1
-				#nextRound = True
-
-		if  (counter >= trainingNum) or switch:
-			# Draw world
-			DS.fill(BLUE)
-			for i in range(len(blocks)):
-				DS.blit(blocks[i].getImage(), blocks[i].getPosition())
-			# Draw agents
-			for i in range(len(agents)):
-				markers = agents[i].getBox()
-				for j in range(len(markers)):
-					DS.blit(pointers[0], (int(markers[j][0]), int(markers[j][1])))
-				if lock:
-					DS.blit(goal.getImage(), goal.getPosition())
-					agents[i].parts.run(DS)
-					agents[i].sensors.run(DS)
-				# Pointer for agents center of gravity
-				cog = agents[i].cog
-				DS.blit(pointers[0], (int(cog[0]), int(cog[1])))
-				# Pointer for collision points
-			pygame.display.update()
-			CLOCK.tick(FPS)
-
-
-		if agents[agent_number].restart:
-
-
-			for i in range(agent_number + 1):
-				if agents[i].won:
-					won += 1
+	def __init__(self):
+		self.initializeVariables()
+		self.generateWorld()
+		# main loop
+		while True:
+			self.checkInputs()
+			if self.running:
+				if self.training:
+					self.trainingMode()
 				else:
-					lost += 1
-			print("Won:", won, "Lost:", lost)
-			if len(network.batch_state_action_reward_tuples) > 50000:
-				episode_num += 1
-				print("Episode Num:", episode_num)
-				#network.update_learn_rate(success_rate)
-				network.finishEpisode()
-				won = 0
-				lost = 0
+					self.freeMode()
+
+			if self.placing_object:
+				self.pos = pygame.mouse.get_pos()
+				self.unplaced.setPosition((self.pos[0] - 200, self.pos[1] - 200))
+				self.unplaced.rotate(self.rotate_unplaced)
+			self.moveTabs()
+
+			self.drawSprites()
+
+	def checkInputs(self):
+		for event in pygame.event.get():
+			if event.type == QUIT or (event.type == KEYDOWN and event.key == K_ESCAPE):
+				pygame.quit()
+				sys.exit()
+			elif event.type == KEYDOWN:
+				if event.key == K_RETURN:
+					self.running = True
+				elif event.key == K_q:
+					self.resetWorld()
+				elif event.key == K_o:	
+					self.rotate_unplaced += 1
+				elif event.key == K_p:	
+					self.rotate_unplaced += -1
+			elif event.type == KEYUP:
+				if event.key == K_p:	
+					self.rotate_unplaced += 1
+				elif event.key == K_o:	
+					self.rotate_unplaced += -1
+
+
+
+			elif event.type == pygame.MOUSEBUTTONDOWN:
+				self.pos = pygame.mouse.get_pos()
+				if self.placing_object:
+					self.placeObject()
+				for i in range(3):
+					self.tabs[i].click(self.pos)
+
+	def drawSprites(self):
+		# Draw world
+		self.DS.fill(self.background)
+		if self.draw_goal:
+			self.DS.blit(self.goal.getImage(), self.goal.getPosition())
+		self.DS.blit(self.floor.getImage(), self.floor.getPosition())
+		if self.placing_object:
+			self.DS.blit(self.unplaced.getImage(), self.unplaced.getPosition())
+		for i in range(len(self.blocks)):
+			self.DS.blit(self.blocks[i].getImage(), self.blocks[i].getPosition())
+		if self.draw_scaleable:
+			for i in range(len(self.scaleable_agents)):
+				self.scaleable_agents[i].parts.run(self.DS)
+		for i in range(len(self.agents)):
+			self.agents[i].parts.run(self.DS)
+
+		for i in range(3):
+			self.tabs[i].run(self.DS)
+
+		self.tabs[1].writeLog(self.DS)
+		pygame.display.update()
+		# Max FPS
+		self.CLOCK.tick(120)
+
+	def placeObject(self):
+		if self.checkEnvironmentOverlap:
+			self.blocks.append(self.unplaced)
+		self.placing_object = False
+
+	def checkEnvironmentOverlap(self, goal=False):
+		checking = self.unplaced
+		if goal:
+			checking = self.goal
+		for k in range(len(self.blocks) + 1):
+			comparison = None
+			if k == len(self.blocks):
+				comparison = [self.floor.getPosition(), self.floor.getMask()]
 			else:
-				print("Episode Finished:", len(network.batch_state_action_reward_tuples))
-			print(agents[agent_number].episode_reward_sum)
+				comparison = [self.blocks[k].getPosition(), self.blocks[k].getMask()]
+
+			# Find the position difference between the agent part and the external object
+			offset = (int(comparison[0][0] - checking.getPosition()[0]), int(comparison[0][1] - checking.getPosition()[1]))
+			result = checking.getMask().overlap(comparison[1], offset)
+			if result:
+				return True, result[0]
+		return False, False
+
+	def generateWorld(self):
+		self.blocks = []
+		self.agents = []
+		self.agent_num = 0
+		while len(self.blocks) < 3:
+			self.unplaced = Block(0, (randint(500,800), randint(0,200)))
+			self.unplaced.loadImage("image_resources/"+self.block_images[randint(0,3)]+".png")
+			self.unplaced.rotate(randint(0,180))
+			if self.checkEnvironmentOverlap()[0]:
+				self.blocks.append(self.unplaced)
+
+
+	def moveTabs(self):
+		for i in range(3):
+			self.tabs[i].hideShow()
+
+	def trainingMode(self):
+		if len(self.agents) == 0:
+			self.agents.append(Agent((290,200), -1, self.network_collection, 0, None, 25, True, self.randomness, (randint(0,80) < self.reference)))
+			self.agents[self.agent_num].addObject((self.floor.getMask(), self.floor.getPosition()[0], self.floor.getPosition()[1]))
+			for j in range(len(self.blocks)):
+				self.agents[self.agent_num].addObject((self.blocks[j].getMask(), self.blocks[j].getPosition()[0], self.blocks[j].getPosition()[1]))
+		agent = self.agents[self.agent_num]
+		network_collection = self.network_collection
+
+		agent.move()
+
+
+		if agent.restart:
+			if agent.won:
+				self.won += 1
+			else:
+				self.lost += 1
+			print("Won:", self.won, "Lost:", self.lost)
+			comparator = 50000
+			if network_collection.get_turn() < 2:
+				comparator = 20000
+			if network_collection.get_length() > comparator:
+
+				network_collection.increment_turn()
+
+				self.generateWorld()
+				self.win_counter += (self.won/(self.won + self.lost))/4
+				if network_collection.get_turn() == 0:
+					self.draw_scaleable = False
+					print("Episode Num:", self.episode_num)
+					learn_rate = 0.1 - (self.win_counter * 0.099)
+					network_collection.update_learn_rate(learn_rate)
+					self.win_counter = 0
+					network_collection.finish_episode()
+					network_collection.save_checkpoint()
+					self.episode_num += 1
+					preset = False
+
+
+
+
+
+					if self.continuous:
+						self.agents = []
+						if self.custom_build:
+							self.agent_num = 0
+						else:
+							self.resetWorld()
+							self.running = True
+					else:
+						self.resetWorld()
+
+
+
+				elif network_collection.get_turn() == 3:
+					self.blocks = []
+				self.won = 0
+				self.lost = 0
+			else:
+				print("Episode Finished:", network_collection.get_length())
 			print("=================")
-			cog_threshold = 800
-			diff_cog = 0
 
 
 
-			agent_number = 0
-			ag_num += 1
-			agents = []
-			training = (randint(0,100) < 80)
-			agents.append(Agent((390,200), blocks[1], network, ag_num, goal, 25))
-			target_counters = [2,3,-1]
-			#lock = False
+			self.agent_num = 0
+			self.agents = []
+			self.agents.append(Agent((290,200), -1, self.network_collection, 0, None, 25, True, self.randomness, (randint(0,80) < self.reference)))
+			self.agents[self.agent_num].addObject((self.floor.getMask(), self.floor.getPosition()[0], self.floor.getPosition()[1]))
+			for j in range(len(self.blocks)):
+				self.agents[self.agent_num].addObject((self.blocks[j].getMask(), self.blocks[j].getPosition()[0], self.blocks[j].getPosition()[1]))
 
-			blocks[1].setRotation(randint(-10,10))
-			blocks[1].setPosition((block_distance, randint(50,150)))
-
-
-
-
-
-			wall_rotation = (-math.sin(blocks[1].getRotation() * math.pi / 180) * 300, -math.cos(blocks[1].getRotation() * math.pi / 180)* 300)
-			wall_rotation_increased = (-math.sin(blocks[1].getRotation() * math.pi / 180) * 320, -math.cos(blocks[1].getRotation() * math.pi / 180)* 320)
-			wall_position = blocks[1].getPosition()
-			corner_pos = (-math.cos(blocks[1].getRotation() * math.pi / 180) * 100, math.sin(blocks[1].getRotation() * math.pi / 180)* 100)
-			goal_xy = (wall_rotation_increased[0] + wall_position[0] + 488, wall_rotation_increased[1] + wall_position[1] + 488)
-			corner_xy = (wall_rotation[0] + wall_position[0] + 500 + corner_pos[0], wall_rotation[1] + wall_position[1] + 500 + corner_pos[1])
-			wall_corner = 400 - corner_xy[1]
-			goal.setPosition(goal_xy)
-
-			print("Wall Height: ", wall_corner)
-			print("Wall Rotation: ", blocks[1].getRotation())
-			for j in range(len(blocks)):
-				agents[agent_number].addObject((blocks[j].getMask(), blocks[j].getPosition()[0], blocks[j].getPosition()[1]))
-		
-		if agents[agent_number].stop == 2:
-
-			print(agents[agent_number].episode_reward_sum)
-
-			last_cog = 400 - agents[agent_number].cog[1]
-
-
-			agent_number += 1
+			if network_collection.get_turn() == 3:
+				for j in range(len(self.scaleable_agents)):
+					self.agents[self.agent_num].addOtherAgent(self.scaleable_agents[j])
+				self.draw_scaleable = True
 
 
 
-			boundary = 25
-			boundary_counters = [1,0]
-			for i in range(agent_number):
-				boundary_counters[1] += 1
-				if boundary_counters[0] == boundary_counters[1]:
-					boundary_counters[0] += 1
-					boundary_counters[1] = 0
-
-			#print("Boundary Counter:", boundary_counters)
-			for j in range(boundary_counters[1]):
-				boundary += 30 + (j * 5)
 
 
-			if (wall_corner - last_cog) < 30:
-				agents.append(Agent((400 - (agent_number * 80),200), focus, network, agent_number, goal, boundary))
-				print("Target: Focus")
-			elif agent_number == target_counters[0]:
-				agents.append(Agent((400 - (agent_number * 80),200), blocks[1], network, agent_number, goal, boundary))
-				target_counters = [target_counters[0] + target_counters[1], target_counters[1] + 1, target_counters[2] - 1]
-				print("Target: Wall")
+
+
+
+
+
+	def freeMode(self):
+		if len(self.agents) == 0:
+			self.setGoal()
+			self.agents.append(Agent((390,200), -1, self.network_collection, 0, self.goal, 25, False, self.randomness, self.subsumption))
+			for j in range(len(self.agents) - 1):
+				self.agents[self.agent_num].addOtherAgent(self.agents[j])
+			self.agents[self.agent_num].addObject((self.floor.getMask(), self.floor.getPosition()[0], self.floor.getPosition()[1]))
+			for j in range(len(self.blocks)):
+				self.agents[self.agent_num].addObject((self.blocks[j].getMask(), self.blocks[j].getPosition()[0], self.blocks[j].getPosition()[1]))
+
+		self.agents[self.agent_num].move()
+		if self.agents[self.agent_num].finished == 1:
+			self.agent_num += 1
+			self.agents.append(Agent((390,200), -1, self.network_collection, 0, self.goal, 25, False, self.randomness, self.subsumption))
+			for j in range(len(self.agents) - 1):
+				self.agents[self.agent_num].addOtherAgent(self.agents[j])
+			self.agents[self.agent_num].addObject((self.floor.getMask(), self.floor.getPosition()[0], self.floor.getPosition()[1]))
+			for j in range(len(self.blocks)):
+				self.agents[self.agent_num].addObject((self.blocks[j].getMask(), self.blocks[j].getPosition()[0], self.blocks[j].getPosition()[1]))
+		elif self.agents[self.agent_num].finished == -1:
+			if self.continuous:
+				self.agents = []
+				if self.custom_build:
+					self.agent_num = 0
+				else:
+					self.resetWorld()
+					self.running = True
 			else:
-				agents.append(Agent((400 - (agent_number * 80),200), agents[agent_number + target_counters[2]].parts.parts[0], network, agent_number, goal, boundary))
-				print("Target:", agent_number + target_counters[2])
+				self.resetWorld()
 
 
-			for j in range(len(agents)):
-				if agent_number is not j:
-					agents[agent_number].addOtherAgent(agents[j])
-			for j in range(len(blocks)):
-				agents[agent_number].addObject((blocks[j].getMask(), blocks[j].getPosition()[0], blocks[j].getPosition()[1]))
 
+	def setGoal(self):
+		for i in range(10):
+			x_pos = randint(850,900)
+			self.goal = Block(0, (x_pos, 0))
+			self.goal.loadImage("image_resources/goal.png")
+			counter = 0
+			while(not self.checkEnvironmentOverlap(True)[0]):
+				counter += 1
+				self.goal.setPosition((x_pos,counter))
+			self.goal.setPosition((x_pos,counter + 2))
+			if (self.checkEnvironmentOverlap(True)[1]) > 20:
+				break
+		self.draw_goal = True
+
+	def resetWorld(self):
+		self.running = False
+		self.placing_object = False
+		self.network_collection.reset_training()
+		self.blocks = []
+		self.agents = []
+		self.agent_num = 0
+		self.episode_num = 0
+		self.draw_goal = False
+		if not self.custom_build:
+			self.generateWorld()
+
+	def worldBuilding(self, object_num):
+		if self.custom_build and not self.running:
+			self.placing_object = True
+			self.unplaced = Block(0, (self.pos[0] - 200, self.pos[1] - 200))
+			self.unplaced.loadImage("image_resources/"+self.block_images[object_num]+".png")
+
+	def initializeVariables(self):
+		# define display surface			
+		self.dimensions = (1080, 600)
+		self.subsumption = True
+		self.episode_num = 0
+		self.agent_num = 0
+		self.placing_object = False
+		self.rotate_unplaced = 0
+		self.continuous = True
+		self.draw_goal = False
+		self.wolf = True
+		self.randomness = 5
+		self.reference = 20
+		self.draw_scaleable = False
+
+		# Backgrounds colour
+		self.background = (0, 153, 255, 221)
+
+		# Keeps track of the winrate across training stages
+		self.win_counter = 0
+		self.network_collection = NetworkCollection()
+		# Place window in the center of the screen
+		os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (150,80)
+		# initialise display
+		pygame.init()
+		self.CLOCK = pygame.time.Clock()
+		self.DS = pygame.display.set_mode(self.dimensions)
+		pygame.display.set_caption("Intelligent Agent Structures")
+
+		pygame.font.init()
+		self.font = pygame.font.SysFont('arial', 12)
+		self.font.set_bold(True)
+
+		self.training = False
+		self.running = False
+		self.custom_build = False
+
+		# Get the image resources for the world
+		self.pointers = [None, None, None]
+		self.pointers[0] = pygame.image.load("image_resources/pointer.png").convert_alpha()
+		self.pointers[1] = pygame.image.load("image_resources/pointerTwo.png").convert_alpha()
+		self.pointers[2] = pygame.image.load("image_resources/pointerThree.png").convert_alpha()
+
+		self.blocks, self.agents = [],[]
+		# Adds agents into the world
+		self.floor = Block(0, (0, 400))
+		self.floor.loadImage("image_resources/flat_floor.png")
+
+		self.block_images = ["300x200","200x600","400x400","200x200"]
+
+		self.tabs = []
+		self.tabs.append(Options(0, self))
+		self.tabs.append(Log(1, self.font))
+		self.tabs.append(Tab(2))
+
+		self.scaleable_agents = []
+		preset_rotations = [44,0,270,90,90,90,0,0,0,90,90,90,0,0,0]
+		self.scaleable_agents.append(Agent((582,339), True, self.network_collection, 0, None, 25, False, self.randomness, self.subsumption))
+		self.scaleable_agents.append(Agent((667,339), True, self.network_collection, 0, None, 25, False, self.randomness, self.subsumption))
+		self.scaleable_agents.append(Agent((667,304), True, self.network_collection, 0, None, 25, False, self.randomness, self.subsumption))
+		for i in range(3):
+			self.scaleable_agents[i].parts.setRotations(preset_rotations)
+
+		self.won = 0
+		self.lost = 0
+
+Main()
