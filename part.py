@@ -13,25 +13,25 @@ class Part(Object):
 		self.weight = weight
 
 	# Return the images pivot
-	def getPivot(self):
+	def get_pivot(self):
 		# Since all images are square this is half it's width + the position
 		pivot = (self.position[0] + self.radius, self.position[1] + self.radius)
 		return pivot
 		
 	# Get parts constraint 
-	def getConstraint(self):
+	def get_constraint(self):
 		return self.constraint
 
 	# Set parts constraint
-	def setConstraint(self, constraint):
+	def set_constraint(self, constraint):
 		self.constraint = constraint
 
 	# Set parts weight
-	def setWeight(self, weight):
+	def set_weight(self, weight):
 		self.weight = weight
 
 	# Get parts weight 
-	def getWeight(self):
+	def get_weight(self):
 		return self.weight
 
 
